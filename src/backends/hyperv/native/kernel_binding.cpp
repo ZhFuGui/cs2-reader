@@ -1,14 +1,12 @@
 #include "backends/hyperv/native/kernel_binding.hpp"
 #include "backends/hyperv/native/hypercall.hpp"
 #include "backends/hyperv/native/kernel_image.hpp"
-#include "diagnostics/obf.hpp"
-#include "platform/windows/native_api.hpp"
+#include "backends/hyperv/native/kernel_locator.hpp"
 #include "platform/windows/process_catalog.hpp"
 #include <algorithm>
 #include <array>
 #include <cstring>
 #include <intrin.h>
-#include <limits>
 #include <mutex>
 #include <optional>
 #include <set>
@@ -16,66 +14,9 @@
 #include <string>
 #include <vector>
 
-extern "C" __declspec(dllimport) NTSTATUS NTAPI RtlAdjustPrivilege(ULONG, BOOLEAN, BOOLEAN, PBOOLEAN);
 namespace cs2::backends::hyperv::native {
 namespace {
 constexpr std::uint64_t kernel_min = 0xFFFF800000000000ULL;
-struct ModuleEntry {
-    HANDLE section;
-    void* mapped;
-    void* base;
-    ULONG size, flags;
-    USHORT load, init, count, name_offset;
-    unsigned char path[256];
-};
-struct Modules { ULONG count; ModuleEntry entries[1]; };
-
-std::uint64_t kernel_base() {
-    BOOLEAN previous = FALSE;
-    const auto privilege = RtlAdjustPrivilege(20, TRUE, FALSE, &previous);
-    if (privilege < 0)
-        throw std::runtime_error("Kernel module query requires SeDebugPrivilege");
-    struct Restore {
-        BOOLEAN previous;
-        ~Restore() {
-            BOOLEAN ignored = FALSE;
-            RtlAdjustPrivilege(20, previous, FALSE, &ignored);
-        }
-    } restore{previous};
-    ULONG required = 0;
-    ::NtQuerySystemInformation(static_cast<SYSTEM_INFORMATION_CLASS>(11), nullptr, 0, &required);
-    for (unsigned attempt = 0; attempt < 8; ++attempt) {
-        if (required < offsetof(Modules, entries) || required > 16 * 1024 * 1024)
-            throw std::runtime_error("Invalid kernel module query size");
-        std::vector<std::byte> buffer(static_cast<std::size_t>(required) + 16384);
-        const auto status = ::NtQuerySystemInformation(static_cast<SYSTEM_INFORMATION_CLASS>(11), buffer.data(),
-                                                       static_cast<ULONG>(buffer.size()), &required);
-        if (status == platform::windows::status_length_mismatch)
-            continue;
-        if (status < 0 || required > buffer.size() || required < offsetof(Modules, entries))
-            throw std::runtime_error("Kernel module query failed");
-        ULONG count = 0;
-        std::memcpy(&count, buffer.data(), sizeof(count));
-        if (count > (required - offsetof(Modules, entries)) / sizeof(ModuleEntry))
-            throw std::runtime_error("Invalid kernel module entries");
-        for (ULONG i = 0; i < count; ++i) {
-            ModuleEntry entry{};
-            std::memcpy(&entry, buffer.data() + offsetof(Modules, entries) + i * sizeof(entry), sizeof(entry));
-            if (entry.name_offset >= sizeof(entry.path) ||
-                !std::memchr(entry.path + entry.name_offset, 0, sizeof(entry.path) - entry.name_offset))
-                continue;
-            const auto* name = reinterpret_cast<const char*>(entry.path + entry.name_offset);
-            if (_stricmp(name, OBF("ntoskrnl.exe").c_str()) && _stricmp(name, OBF("ntkrnlmp.exe").c_str()))
-                continue;
-            const auto base = reinterpret_cast<std::uint64_t>(entry.base);
-            if (base < kernel_min || (base & 4095))
-                throw std::runtime_error("Kernel module base is unavailable under the current token");
-            return base;
-        }
-        break;
-    }
-    throw std::runtime_error("Running NT kernel is absent from the module query");
-}
 
 std::uint64_t value(std::uint64_t caller_cr3, std::uint64_t address) {
     std::uint64_t output = 0;
@@ -187,7 +128,7 @@ std::uint32_t infer_cr3(std::uint64_t caller_cr3, const KernelImage& image, std:
     return *match;
 }
 KernelLayout infer_layout(std::uint64_t caller_cr3) {
-    const KernelImage image(caller_cr3, kernel_base());
+    const KernelImage image(caller_cr3, locate_kernel_base(caller_cr3));
     KernelLayout result;
     result.pid = image.accessor_offset("PsGetProcessId");
     result.peb = image.accessor_offset("PsGetProcessPeb");

@@ -296,6 +296,9 @@
     <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_image.hpp">
       <Filter>backends\hyperv\native</Filter>
     </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_locator.hpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClInclude>
     <ClInclude Include="$(ReaderRoot)src\backends\hyperv\session.hpp">
       <Filter>backends\hyperv</Filter>
     </ClInclude>
@@ -350,6 +353,9 @@
       <Filter>backends\hyperv\native</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_image.cpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_locator.cpp">
       <Filter>backends\hyperv\native</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\session.cpp">

@@ -9,7 +9,9 @@ namespace cs2::backends::hyperv::native::abi {
 // 数值必须显式固定，不能删除未使用的操作后依赖枚举自动编号。
 inline constexpr std::uint64_t allowed_key = 0x8A3B55C7927ULL;
 inline constexpr std::uint64_t test_response = 0x1337;
-enum class Operation : std::uint16_t { Test = 0, CurrentCr3 = 1, VirtualCopy = 3, ReadBatch = 11 };
+enum class Operation : std::uint16_t {
+    Test = 0, CurrentCr3 = 1, PhysicalCopy = 2, VirtualCopy = 3, TranslateVa = 4, ReadBatch = 11
+};
 
 inline constexpr std::size_t batch_max_items = 64, batch_max_bytes = 64 * 1024;
 struct BatchItem {
