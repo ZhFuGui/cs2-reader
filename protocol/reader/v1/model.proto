@@ -1,0 +1,357 @@
+syntax = "proto3";
+package cs2.reader.v1;
+
+// CS2 Reader v1 只读订阅契约。
+// 本文件只描述实际取得的数据；骨点语义按已核验模型提供，不补造未知模型或弹道资料。
+
+message Vec3 {
+  float x = 1; // 原生世界坐标轴 X，或同轴的向量分量。
+  float y = 2; // 原生世界坐标轴 Y，或同轴的向量分量。
+  float z = 3; // 原生世界坐标轴 Z，世界向上。
+}
+message Angles {
+  float pitch = 1; // 原生 pitch，单位为度。
+  float yaw = 2; // 原生 yaw，单位为度。
+  float roll = 3; // 原生 roll，单位为度。
+}
+message Quaternion {
+  float x = 1; // 原生四元数X分量；完整分量顺序为x/y/z/w。
+  float y = 2; // 原生四元数Y分量，不做坐标轴或左右手翻转。
+  float z = 3; // 原生四元数Z分量，世界坐标沿用现有Source 2坐标。
+  float w = 4; // 原生四元数标量分量；有效旋转满足abs(x²+y²+z²+w²-1)<=0.001，Reader不归一化坏值。
+}
+message WorldToClip {
+  repeated float row_major = 1 [packed = true]; // 恰好 16 个有限值；行主序，左乘世界坐标列向量。
+}
+message EntityHandle {
+  fixed32 value = 1; // 完整原生 32 位 handle；不能只保留低 15 位索引，不能用作跨会话永久身份。
+}
+message EntityState {
+  EntityHandle id = 1; // 当前会话内的完整实体 handle。
+  string designer_name = 2; // 原生 designer name；可能是 precache 别名，不等同于运行时 C++ 类名。
+  Vec3 position = 3; // SceneNode 的绝对世界位置；Source 2 原生单位，不在 Reader 中换算米。
+  Angles rotation = 4; // SceneNode 的绝对旋转。
+  optional float scale = 5; // SceneNode 的绝对缩放。
+  optional bool dormant = 6; // 原生休眠标记，false 与缺失不同。
+  Vec3 world_velocity = 7; // 原生绝对世界速度，原生坐标单位/秒。
+  optional uint32 team = 8; // 原生队伍编号；Reader 不据此过滤敌我。
+  optional sint32 health = 9; // Pawn/实体的当前血量；零值不是读取失败。
+  optional sint32 max_health = 10; // 实体的最大血量。
+  optional uint32 life_state_raw = 11; // 原生生命周期数值；不套用 PUBG 的枚举。
+  optional uint32 flags_raw = 12; // 原生实体 flags。
+  EntityHandle owner = 13; // 原生拥有者引用；目标可能尚未采到，不能据此撤销来源实体。
+}
+message Weapon {
+  EntityState entity = 1; // 武器实体的普通状态。
+  optional uint32 definition_index = 2; // 原生物品定义编号；不是 PUBG 的武器 ID。
+  optional string custom_name = 3; // 已读到并以 NUL 正常终止的自定义名称。
+  optional sint32 clip = 4; // 主弹匣当前弹量。
+  optional sint32 secondary_clip = 5; // 副弹匣当前弹量。
+  optional sint32 reserve_ammo = 6; // 原生备用弹量字段。
+  optional sint32 paint_kit = 7; // 原生涂装编号。
+  optional float wear = 8; // 原生磨损值。
+  optional sint32 stattrak = 9; // 原生计数值。
+  optional float accuracy_penalty = 10; // 原生精度惩罚；不能当成弹速或落点偏移。
+  optional float recoil_index = 11; // 原生后坐序号；不能当成应输出的鼠标位移。
+  optional bool reloading = 12; // 原生换弹状态。
+  optional bool silenced = 13; // 原生消音器状态。
+  optional bool burst_mode = 14; // 原生连发模式状态。
+  WeaponAccuracyEvaluation accuracy_evaluation = 15; // 当前武器独立精度观察；某一结果不可用不撤销武器或整个快照。
+}
+
+enum AccuracyStatus {
+  ACCURACY_STATUS_UNSPECIFIED = 0; // 未提供结果状态，不能当作有效零值。
+  ACCURACY_STATUS_VALID = 1; // 对应value存在、有限，且本轮依赖与来源已核验。
+  ACCURACY_STATUS_READ_FAILED = 2; // 必需内存未完整读到。
+  ACCURACY_STATUS_SOURCE_CHANGED = 3; // 本次关闭核验发现来源、值或身份发生变化。
+  ACCURACY_STATUS_UNSUPPORTED_BUILD = 4; // 没有匹配当前版本的原生求值描述。
+  ACCURACY_STATUS_UNSUPPORTED_DISPATCH = 5; // 实际虚表或机器码与已核验入口不匹配。
+  ACCURACY_STATUS_DIRTY_VELOCITY = 6; // 原生速度缓存待重算；只读采集不使用旧缓存或主动触发重算。
+  ACCURACY_STATUS_UNSUPPORTED_PHYSICS = 7; // 命中尚未适配的物理对象速度分支。
+  ACCURACY_STATUS_EYE_UNAVAILABLE = 8; // 条件方向项所需的原生EyeAngles不可用或未核验。
+  ACCURACY_STATUS_OWNER_UNAVAILABLE = 9; // 不能确认完整owner关系；不等于已证明无owner。
+  ACCURACY_STATUS_GROUND_UNAVAILABLE = 10; // 不能确认原生完整ground句柄解析结果。
+  ACCURACY_STATUS_RULE_UNAVAILABLE = 11; // 条件规则的cvar类型、名称、槽位或取值未核验。
+  ACCURACY_STATUS_INVALID_INPUT = 12; // 取得的输入不满足有限值或格式约束。
+  ACCURACY_STATUS_NONFINITE_RESULT = 13; // 原生算术域产生非有限结果，不填0。
+  ACCURACY_STATUS_UNSUPPORTED_NORMALIZATION = 14; // 命中未覆盖的极端速度归一化分支。
+}
+enum AccuracyBranch {
+  ACCURACY_BRANCH_UNSPECIFIED = 0; // 不可用或未确定分支。
+  ACCURACY_BRANCH_NO_OWNER = 1; // 原生解析已证明无owner；完整Inaccuracy有效为0。
+  ACCURACY_BRANCH_FORCED = 2; // force规则提前返回，优先于nospread。
+  ACCURACY_BRANCH_NO_SPREAD = 3; // nospread规则提前返回，完整Inaccuracy有效为0。
+  ACCURACY_BRANCH_NORMAL = 4; // 使用已更新penalty、移动、空中、转向及条件方向项。
+}
+message AccuracyScalar {
+  optional float value = 1; // 无量纲方向幅度，非角度或命中率；仅status=VALID时存在，0是有效值。
+  AccuracyStatus status = 2; // 每个结果独立的有效性；一个无效不能污染另一个。
+}
+message WeaponAccuracyEvaluation {
+  string model_id = 1; // 版本绑定求值模型；本实现cs2.weapon_accuracy.14193.v1，不是武器名称。
+  EntityHandle owner = 2; // 本次实际核验的完整owner；无owner与owner无法确认由分支/状态区别。
+  AccuracyScalar inaccuracy = 3; // 完整Inaccuracy getter的观察结果；不覆盖accuracy_penalty。
+  AccuracyScalar spread = 4; // 独立Spread getter的观察结果；不重复加入inaccuracy。
+  AccuracyBranch branch = 5; // 完整Inaccuracy实际成功分支；失败时未指定。
+  optional float movement = 6; // 普通成功分支的移动贡献；提前返回保持缺失。
+  optional float airborne = 7; // 普通成功分支的空中贡献；已确认在地面时有效为0。
+  optional float turning = 8; // 普通成功分支的已更新转向贡献。
+  optional float lateral = 9; // 普通成功分支的条件方向贡献；规则明确关闭时有效为0。
+  optional float penalty = 10; // 本精度观察内部读取并核验的penalty；非另一采样的沿用值。
+  optional sint32 mode_raw = 11; // 本次原生模式原值；不得把缺失默认为模式0。
+  optional float accuracy_state_time_seconds = 12; // penalty最后更新的GameTime_t秒，不是所有输入的共同时间或QPC。
+  optional fixed64 started_qpc = 13; // 精度组第一次读取前QPC；继承外层快照的实例、session/epoch、capture_sequence与时钟域。
+  optional fixed64 read_finished_qpc = 14; // 两个独立结果的必要读取及关闭核验均结束后的QPC；不构造原子快照承诺。
+}
+enum BoneRole {
+  BONE_ROLE_UNSPECIFIED = 0; // 语义未知；语义编号不等于模型原生索引。
+  BONE_ROLE_PELVIS = 1; // 骨盆。
+  BONE_ROLE_SPINE_0 = 2; // 第一段脊柱，靠近骨盆。
+  BONE_ROLE_SPINE_1 = 3; // 第二段脊柱。
+  BONE_ROLE_SPINE_2 = 4; // 第三段脊柱。
+  BONE_ROLE_SPINE_3 = 5; // 第四段脊柱，上胸。
+  BONE_ROLE_NECK = 6; // 颈部骨原点。
+  BONE_ROLE_HEAD = 7; // 头部骨原点，不等于头顶或命中盒中心。
+  BONE_ROLE_LEFT_CLAVICLE = 8; // 角色自身左锁骨。
+  BONE_ROLE_LEFT_UPPER_ARM = 9; // 角色左上臂根、肩关节。
+  BONE_ROLE_LEFT_FOREARM = 10; // 角色左前臂根、肘关节。
+  BONE_ROLE_LEFT_HAND = 11; // 角色左手根、腕关节。
+  BONE_ROLE_RIGHT_CLAVICLE = 12; // 角色自身右锁骨。
+  BONE_ROLE_RIGHT_UPPER_ARM = 13; // 角色右上臂根、肩关节。
+  BONE_ROLE_RIGHT_FOREARM = 14; // 角色右前臂根、肘关节。
+  BONE_ROLE_RIGHT_HAND = 15; // 角色右手根、腕关节。
+  BONE_ROLE_LEFT_UPPER_LEG = 16; // 角色左大腿根、髋关节；此语义值16不等于原生索引17。
+  BONE_ROLE_LEFT_LOWER_LEG = 17; // 角色左小腿根、膝关节。
+  BONE_ROLE_LEFT_ANKLE = 18; // 角色左踝关节。
+  BONE_ROLE_RIGHT_UPPER_LEG = 19; // 角色右大腿根、髋关节。
+  BONE_ROLE_RIGHT_LOWER_LEG = 20; // 角色右小腿根、膝关节。
+  BONE_ROLE_RIGHT_ANKLE = 21; // 角色右踝关节。
+}
+enum SkeletonStatus {
+  SKELETON_STATUS_UNSPECIFIED = 0; // 状态未提供，不可当作已核验骨架。
+  SKELETON_STATUS_UNKNOWN_MODEL = 1; // 模型未命中当前build的核验名单，点、语义和连线均不猜测。
+  SKELETON_STATUS_SOURCE_UNAVAILABLE = 2; // 骨骼来源或数据不可用；不沿用历史姿态。
+  SKELETON_STATUS_VERIFIED_PARTIAL = 3; // 模型映射与来源已核验，部分点读取失败或非有限。
+  SKELETON_STATUS_VERIFIED_COMPLETE = 4; // 21个主干位置与来源核验完成；可选旋转须逐点检查，不宣称游戏内存为原子快照。
+}
+message BonePoint {
+  uint32 native_index = 1; // 模型原生骨索引；已核验主干为1..15、17..22。
+  Vec3 world_position = 2; // 本次采样的世界坐标，不能用旧点填补缺失。
+  optional BoneRole role = 3; // 按当前模型核验的骨点语义；缺失不能按索引猜测。
+  Quaternion world_rotation = 4; // 本批已求值骨骼世界旋转，和world_uniform_scale成组存在；与world_position来自同一骨记录拷贝。采用Hamilton单位四元数的列向量主动旋转，按契约叉积公式使用原值，不隐式归一化或除范数；不是父局部旋转。
+  optional float world_uniform_scale = 5; // 本批骨局部到世界的累计有符号均匀缩放，已含父链/实体缩放，不可再次乘entity.scale；零为有效值。世界点=world_position+world_uniform_scale*Rotate(world_rotation,骨局部点)。
+  // 32字节记录可能与游戏写入并行；仅保证本批同源拷贝和来源关闭核验，不保证原子姿态。
+  // 任一姿态字段不可用时两字段共同缺失，位置仍可存在；不从骨点连线或实体朝向补旋转。
+}
+message BoneLink {
+  uint32 parent_native_index = 1; // 原生父索引，必须能在本次points中找到。
+  uint32 child_native_index = 2; // 原生子索引，必须能在本次points中找到。
+}
+message Skeleton {
+  repeated BonePoint points = 1; // 仅本次成功读取的已核验主干点；完整21点，未知模型不提供猜测点。
+  SkeletonStatus status = 2; // 当前模型核验与本次读取状态，必须逐人物判断。
+  optional string model_name = 3; // 已读取并核验来源的规范模型资源名，无原始地址。
+  optional string profile_id = 4; // 已识别布局的版本标识；未知模型缺失。
+  repeated BoneLink links = 5; // 本次端点均可用的真实父子边；完整20条。根运动0未采集，骨盆1为该子图根。
+  optional bool native_hitbox_set_available = 6; // 已核验唯一cstrike资源下，本批稳定MeshGroupMask是否选中至少一个携带该集合的mesh；false表示过滤为空，缺失表示加载/来源/映射未确认。不表示服务器可命中、完整姿态或已调用游戏查询接口。
+}
+message HandleList {
+  repeated EntityHandle values = 1; // 原生句柄列表；整体缺失与明确空列表分开表达。
+}
+message SpottedMask {
+  fixed32 low = 1; // 原生 spotted-by 数组的第一个 32 位值。
+  fixed32 high = 2; // 原生 spotted-by 数组的第二个 32 位值。
+}
+message GameTimePoint {
+  optional sint32 tick = 1; // 原生游戏tick，零是有效值；不是QPC计数。负值原样保留，不自行伪造成缺失。
+  optional float fraction = 2; // 原生tick的小数部分；基础状态保留读取值，求值时按引擎规则归一化。
+}
+enum VisualRecoilTimePolicy {
+  VISUAL_RECOIL_TIME_UNSPECIFIED = 0; // 时间选择规则未取得，不能猜测。
+  VISUAL_RECOIL_TIME_SEPARATE_RENDER = 1; // 可预测分量可用预测时间，非预测分量使用世界渲染时间。
+  VISUAL_RECOIL_TIME_SHARED_SIMULATION = 2; // 两个视觉分量使用同一游戏模拟时间。
+}
+message RecoilTimes {
+  optional fixed32 world_group = 1; // 本次来源Pawn的原生WorldGroupId，零是有效世界组；跨世界组不可直接比较tick。
+  VisualRecoilTimePolicy visual_policy = 2; // 当前原生上下文实际选择的视觉时间规则。
+  GameTimePoint simulation = 3; // 武器服务查询当前射击方向使用的求值时间；不是尚未产生的未来开火指令时间。
+  GameTimePoint visual_predictable = 4; // 相机组合求值器为可预测分量选择的时间。
+  GameTimePoint visual_unpredictable = 5; // 相机组合求值器为非预测分量选择的时间。
+  optional float seconds_per_tick = 6; // build14192核验为1/64秒；求值器内部128步/秒不代表服务器128tick。
+  optional sint32 native_context = 7; // 本批原生求值上下文编号；与eye_basis.native_context核对，不能仅凭时间策略相同猜测两者上下文相同。
+}
+message PredictableAimPunch {
+  GameTimePoint base_time = 1; // 可预测分量的基准tick及子tick。
+  Angles base_angle = 2; // 该基准时刻的原生基础角，单位度，未乘二或相机系数。
+  Angles base_angular_velocity = 3; // 原生基础角速度，度/秒；不能直接当作当前角度或鼠标位移。
+}
+message UnpredictableAimPunch {
+  optional sint32 base_tick = 1; // 非预测分量基准tick；原生这一分量没有独立子tick字段，求值采用0小数。
+  Angles base_angle = 2; // 非预测分量的原生基础角；不等同于武器随机散布。
+}
+message AimPunchState {
+  PredictableAimPunch predictable = 1; // 仅该组字段完整读取且来源关闭核验通过时存在。
+  UnpredictableAimPunch unpredictable = 2; // 独立存在性；一组失败不以另一组或历史值填补。
+  RecoilTimes times = 3; // 本批实际读取并选择的游戏时间；来源无法确认时缺失，不能拿QPC直接代入。
+}
+message CameraViewPunchState {
+  Angles base_angle = 1; // CameraServices.m_vecCsViewPunchAngle原生基角，独立于AimPunch。
+  GameTimePoint base_time = 2; // 原生m_nCsViewPunchAngleTick及m_flCsViewPunchAngleTickRatio。
+  optional float evaluation_time_seconds = 3; // view-punch路径本批选定的全局/预测秒时间，不经过AimPunch的WorldGroup映射。
+  optional float decay_exponent = 4; // 本次读取的view_punch_decay实际值；缺失不能套用默认常数。
+}
+enum EyeAngleSource {
+  EYE_ANGLE_SOURCE_UNSPECIFIED = 0; // 没有已证明的原生眼角来源。
+  EYE_ANGLE_SOURCE_NETWORK = 1; // 原生EyeAngles在当前分支直接返回网络眼角。
+  EYE_ANGLE_SOURCE_PREDICTION_INPUT = 2; // 已确认无视图委托和父变换的输入/预测分支，返回Pawn.v_angle。
+  EYE_ANGLE_SOURCE_NATIVE_INTERPOLATION = 3; // 读取原生插值器在当前查询参数下会直接返回的已求值缓存；不使用Reader跨帧缓存。
+  EYE_ANGLE_SOURCE_NATIVE_HISTORY = 4; // 本批复制并核验原生环形历史后，重放其角度选择、插值或外推；未写入游戏缓存。
+  EYE_ANGLE_SOURCE_PARENT_TRANSFORMED_INPUT = 5; // 本体输入角经原生父实体世界四元数合成，已经处于世界方向坐标系。
+  EYE_ANGLE_SOURCE_DELEGATED = 6; // 原生入口沿视图委托链取值；实际终点分支由resolved_source表示。
+  EYE_ANGLE_SOURCE_WORLD_ROTATION = 7; // 已核验BaseEntity或PointCamera入口，直接返回已求值SceneNode的世界旋转。
+}
+message EyeAngleBasis {
+  Angles value = 1; // 已核验的当前上下文EyeAngles基准角，尚未叠加AimPunch或其他相机效果；不是未来指令角。
+  EyeAngleSource source = 2; // 原生函数当前实际命中的来源分支。
+  optional sint32 native_context = 3; // 采样时的原生上下文编号；不同上下文的基角和后坐不可冒充同一次调用。
+  optional float interpolation_parameter = 4; // 原生插值器的内部查询参数，仅在插值路径提供；不当作QPC或AimPunch tick跨域相减。
+  optional EyeAngleSource resolved_source = 5; // 仅委托路径提供，表示链末端实际使用的非委托分支；不得为UNSPECIFIED或DELEGATED。
+  EntityHandle source_entity = 6; // 仅委托路径提供，表示最终方向来源实体完整handle；结果已经求值，不要求先解析该引用。
+  optional uint32 delegation_depth = 7; // 仅委托路径提供，表示已核验的委托次数；循环、来源改变或无法核验时整组缺失。
+}
+message PlayerBody {
+  EntityState entity = 1; // 身体实体；可能与本地观察 Pawn 不同。
+  optional sint32 armor = 2; // 身体护甲。
+  optional sint32 shots_fired = 3; // 原生射击计数；不等同于当前按下开火键，也不是“正在射击”布尔值。
+  optional bool scoped = 4; // 原生开镜状态。
+  optional bool defusing = 5; // 原生拆包状态。
+  optional bool helmet = 6; // 已核验 ItemServices 的头盔字段。
+  optional bool defuser = 7; // 已核验 ItemServices 的拆包器字段。
+  optional bool spotted = 8; // 原生被发现标记；不等同于几何无遮挡。
+  SpottedMask spotted_by = 9; // 原生被发现掩码。
+  optional float flash_duration = 10; // 原生闪光持续时间字段。
+  optional float flash_max_alpha = 11; // 原生闪光最大透明度字段。
+  Angles eye_angles = 12; // schema m_angEyeAngles原始网络眼角；原生EyeAngles虚函数还可走预测、委托、父变换或插值，不能直接等同。
+  AimPunchState aim_punch = 13; // 原生分量、基准时间、角速度及本批求值时间；不直接传虚构补偿量。
+  reserved 14; // 旧的单独非预测基础角已归入aim_punch；开发中按新冻结摘要成对升级。
+  Vec3 view_offset = 15; // 原生身体视点偏移；不表示最终第三人称相机位置。
+  optional string location = 16; // 原生最后位置名称。
+  EntityHandle active_weapon = 17; // 本次采样的当前武器引用；需在同一批 weapons 中解析，无法解析时保持未解析。
+  Skeleton skeleton = 18; // 本次骨点、按模型核验的语义及可用父子边；未启用采集时整体缺失。
+  HandleList equipped_weapons = 19; // 仅在列表读取及来源核验完成时提供；现有模型没有区分成功空列表与缺失，接入时不得伪造该存在性。
+  Angles input_eye_angles = 20; // 原生Pawn.v_angle输入/预测角原值；不能无条件代替EyeAngles虚函数或最终渲染角。
+  EyeAngleBasis eye_basis = 21; // 本批重放原生入口、历史插值、视图委托或父变换所得基准；来源不可用或核验失败时缺失，不回退冒充。
+}
+message Player {
+  EntityHandle controller = 1; // 控制器完整 handle；可以有控制器而没有有效身体。
+  optional string name = 2; // 原生玩家名称，保留 UTF-8 内容。
+  optional string sanitized_name = 3; // 原生净化名称；不以旧名称补齐缺失。
+  optional fixed64 steam_id = 4; // 原生平台 ID；JavaScript 不得通过 Number 丢失 64 位精度。
+  optional sint32 connection_state_raw = 5; // 原生连接状态数值。
+  optional sint32 ping = 6; // 控制器的原生延迟字段。
+  optional sint32 score = 7; // 原生分数。
+  optional sint32 money = 8; // 已核验 MoneyServices 的原生金额。
+  optional sint32 bot_difficulty_raw = 9; // 原生机器人难度字段；不能仅凭此字段或 steam_id=0 判定真人/机器人。
+  optional uint32 team = 10; // 控制器队伍编号。
+  optional bool is_local_controller = 11; // 本次读取的本地控制器标记；不保证身体就是当前观察目标。
+  optional bool controller_reports_alive = 12; // 控制器报告的 Pawn 存活标记，与身体血量分开保留。
+  optional uint32 controller_reported_health = 13; // 控制器报告的 Pawn 血量，不冒充身体字段。
+  optional uint32 controller_reported_armor = 14; // 控制器报告的 Pawn 护甲。
+  EntityHandle player_pawn = 15; // 控制器的 PlayerPawn 引用。
+  EntityHandle observer_pawn = 16; // 控制器的 ObserverPawn 引用。
+  PlayerBody body = 17; // 本次成功核验的身体；缺失不等同于死亡。
+}
+enum NativeInputSource {
+  NATIVE_INPUT_SOURCE_UNSPECIFIED = 0; // 输入来源未取得或发生切换，不能按鼠标路径处理。
+  NATIVE_INPUT_SOURCE_MOUSE = 1; // 当前原生输入选择器选中鼠标路径。
+  NATIVE_INPUT_SOURCE_ANALOG = 2; // 当前选中模拟输入路径；本契约不外推手柄角度换算。
+}
+message MouseMapping {
+  NativeInputSource source = 1; // build14192、slot0，原生两个轴的最新来源计数选择结果。
+  optional float sensitivity = 2; // sensitivity当前slot0实际值，不是默认值或物理设备校准。
+  optional float vertical_scale = 3; // sensitivity_y_scale实际值，额外作用于鼠标纵轴。
+  optional float yaw = 4; // m_yaw实际值；原生鼠标横轴还带负号。
+  optional float pitch = 5; // m_pitch实际值；受sv_cheats分支限制，不能直接当最终纵轴系数。
+  optional float zoom_ratio = 6; // zoom_sensitivity_ratio实际值；不再次乘到已含开镜倍率的pawn_fov_adjust上。
+  optional bool inverted_y = 7; // mouse_inverty实际值；false不是缺失。
+  optional float effective_pitch = 8; // 核验sv_cheats的值及flags后按原生限制分支选出的pitch系数。
+  optional float pawn_fov_adjust = 9; // 本地控制器当前Pawn的m_flFOVSensitivityAdjust，包含当前开镜/变倍调整。
+  optional float pawn_mouse_sensitivity = 10; // 原生m_flMouseSensitivity；0是没有此覆盖的哨兵，不能当作鼠标完全不动。
+  optional float yaw_degrees_per_delta = 11; // 鼠标分支每个原生累计横轴增量的角度导数；已含负号及FOV倍率，不能再乘灵敏度。
+  optional float pitch_degrees_per_delta = 12; // 纵轴角度导数，已含有效pitch、纵轴灵敏度、FOV及反转；0有效但不可用作除数。
+}
+enum CameraRecoilPath {
+  CAMERA_RECOIL_PATH_UNSPECIFIED = 0; // 尚未证明的相机路径；不能套用普通第一人称的角度公式。
+  CAMERA_RECOIL_PATH_PLAYER = 1; // 活着的本地PlayerPawn，已核验Player相机服务求值入口。
+  CAMERA_RECOIL_PATH_OBSERVED_PLAYER = 2; // build14192的in-eye观战分支，委托活着的目标PlayerPawn相机服务。
+}
+message Local {
+  EntityHandle controller = 1; // 当前本地控制器引用。
+  EntityHandle pawn = 2; // 当前本地 Pawn，可能是观察 Pawn，不能强制要求它存在于 Player.body 中。
+  EntityHandle observer_target = 3; // 原生观察目标引用。
+  EntityHandle view_entity = 4; // 原生相机服务的视图实体引用。
+  WorldToClip world_to_clip = 5; // 本批读取的世界到裁剪空间矩阵；不能当作 view-only 矩阵。
+  Angles input_view_angles = 6; // dwViewAngles 的原始角度，不宣称已经包含所有相机效果。
+  CameraViewPunchState camera_view_punch = 7; // camera_recoil_pawn相机服务的独立反馈原始状态及衰减输入；未知/死亡相机路径不冒充普通第一人称。
+  Vec3 pawn_eye_position = 8; // 身体原点+身体视点偏移；不是最终第三人称/观战相机的真实位置。
+  optional uint32 fov_override = 9; // 原生 FOV 覆盖值；0 表示未覆盖，不等同于最终 FOV 为0。
+  optional uint32 observer_mode_raw = 10; // 原生观察模式数值。
+  reserved 11; // 原独立sensitivity已并入mouse_mapping；精确冻结摘要成对升级，不维护旧字段。
+  MouseMapping mouse_mapping = 12; // 原生slot0鼠标求值规则；不包含键盘转向叠加、操作系统或硬件设备校准。
+  optional bool crosshair_recoil = 13; // cl_crosshair_recoil实际值；跟随后坐准星使用可预测AimPunch，不使用相机0.45系数。
+  EntityHandle camera_recoil_pawn = 14; // 当前已证明的相机后坐来源人物；观战时可与local.pawn不同，关联其PlayerBody.aim_punch。
+  CameraRecoilPath camera_recoil_path = 15; // 本次证明的相机分支；死亡、其他观战或未知来源时保持未指定，矩阵仍可独立使用。
+}
+message Bomb {
+  EntityState entity = 1; // 炸弹实体。
+  optional bool ticking = 2; // 原生计时状态。
+  optional bool defused = 3; // 原生已拆除状态。
+  optional bool being_defused = 4; // 原生正在拆除状态。
+  optional bool exploded = 5; // 原生已爆炸状态。
+  optional sint32 site = 6; // 原生包点编号。
+  optional float explode_at = 7; // 原生游戏时间域中的爆炸时刻，不能与 QPC 直接相减。
+  optional float timer_length = 8; // 原生计时长度。
+  optional float defuse_at = 9; // 原生游戏时间域中的拆除结束时刻。
+  optional float defuse_length = 10; // 原生拆除长度。
+  EntityHandle defuser = 11; // 原生拆包者引用。
+}
+message Projectile {
+  EntityState entity = 1; // 投掷物实体。
+  Vec3 initial_position = 2; // 原生初始位置。
+  Vec3 initial_velocity = 3; // 原生初始速度，不是武器弹速。
+  optional sint32 bounces = 4; // 原生反弹次数。
+  optional sint32 explode_tick = 5; // 原生爆炸 tick，不属于 QPC 时间域。
+  optional sint32 smoke_tick = 6; // 原生烟雾效果 tick。
+  optional bool exploded = 7; // 原生爆炸效果开始状态。
+  optional bool smoke_started = 8; // 原生烟雾效果开始状态。
+  optional float spawn_time = 9; // 原生生成游戏时间。
+}
+enum MapStatus {
+  MAP_STATUS_UNSPECIFIED = 0; // 地图状态未知，不能选择场景。
+  MAP_STATUS_AVAILABLE = 1; // 本批起止观察一致，原生名称与资源路径完整；不宣称原子快照。
+  MAP_STATUS_NOT_IN_LEVEL = 2; // 原生 IsInGame 条件不成立，包括背景地图与尚未完成 sign-on；名称和路径缺失。
+  MAP_STATUS_SOURCE_UNAVAILABLE = 3; // 地图来源或字符串读取失败；名称和路径缺失，不继承旧值。
+  MAP_STATUS_TRANSITION = 4; // 本批前后地图来源或有效状态变化；名称和路径缺失。
+  MAP_STATUS_UNSUPPORTED = 5; // 当前 build 的地图来源尚未核验；名称和路径缺失。
+}
+message MapIdentity {
+  MapStatus status = 1; // 仅 AVAILABLE 可以选择或继续使用对应的碰撞场景。
+  fixed64 generation = 2; // Reader 观察到的地图身份/有效性代次，非零；作用域是 Reader 实例与 process_session_epoch，不是游戏官方地图 ID。
+  optional string name = 3; // 原生短名称，如 de_dust2；不推断、不补常数，非 AVAILABLE 时缺失。
+  optional string resource_path = 4; // 原生地图资源路径，如 maps/de_dust2.vpk；不保证是本机文件路径，非 AVAILABLE 时缺失。
+}
+message World {
+  optional bool freeze_period = 1; // 原生冻结时间段标记。
+  optional bool warmup = 2; // 原生热身标记。
+  optional bool match_started = 3; // 原生比赛开始标记。
+  optional bool bomb_planted = 4; // 原生炸弹已安装标记。
+  optional bool bomb_dropped = 5; // 原生炸弹掉落标记。
+  optional sint32 round_time = 6; // 原生回合时长。
+  optional sint32 rounds_played = 7; // 原生已进行回合数。
+  optional sint32 round_win_status_raw = 8; // 原生回合胜利状态数值。
+  optional sint32 phase_raw = 9; // 原生游戏阶段数值。
+  optional float round_started_at = 10; // 原生回合开始游戏时间，不属于 QPC 时间域。
+  Vec3 minimap_min = 11; // 原生小地图边界最小值。
+  Vec3 minimap_max = 12; // 原生小地图边界最大值。
+  MapIdentity map_identity = 13; // 与本 Snapshot.identity 和采集区间绑定；缺失、无效、断线或共享失效时必须撤销旧地图结果。
+}

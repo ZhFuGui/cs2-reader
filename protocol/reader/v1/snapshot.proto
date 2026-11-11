@@ -1,0 +1,47 @@
+syntax = "proto3";
+package cs2.reader.v1;
+import "reader/v1/model.proto";
+
+message CaptureIdentity {
+  bytes reader_instance_id = 1; // 每次 Reader 启动随机生成的16字节标识，不能从PID推导或代替。
+  fixed64 process_session_epoch = 2; // 每次绑定新进程会话递增；当前 epoch 只保证会话范围，不保证地图变化必然递增。
+  fixed64 capture_sequence = 3; // 本次成功采集序号；不能用发送次数或重发次数伪造新采样。
+  uint32 process_id = 4; // 当前绑定的游戏PID，作为说明，不能独立用作生命周期身份。
+  uint32 game_build = 5; // 当前已核对的游戏 build。
+}
+message ClockDescriptor {
+  bytes domain_id = 1; // 16字节时钟域标识；没有经过握手验证不得直接跨进程或跨机器相减。
+  fixed64 frequency = 2; // 当前Reader的QPC频率，必须大于0；不是游戏tick频率。
+}
+message CaptureInterval {
+  optional fixed64 started_qpc = 1; // 完整批次第一次读取之前记录。
+  optional fixed64 read_finished_qpc = 2; // 完整批次最后一次读取及必要核验完成之后记录。
+  optional fixed64 finished_qpc = 3; // 纯CPU整理与最终提交完成之后记录。
+  // 当前 Local、人物、武器等均来自上述同一采集区间；没有独立分组或单字段采样时刻。
+}
+message Coverage {
+  fixed64 slots = 1; // 本次目录覆盖的来源槽位总数，包含空槽。
+  fixed64 empty = 2; // 明确为空的槽位数。
+  fixed64 invalid = 3; // 地址或记录格式不合法的槽位数。
+  fixed64 unreadable = 4; // 读取失败的槽位数。
+  fixed64 changed = 5; // 核验时已变化的槽位数。
+  fixed64 unknown = 6; // 类型未确认的有效槽位数，不发送其虚构属性。
+  fixed64 classified = 7; // 已确认类别的槽位数。
+  sint32 reported_highest_index = 8; // 游戏报告值，仅作说明，不能据此截断客户端实体。
+  uint32 allocated_chunks = 9; // 完整分块表中已分配的块数。
+  bool directory_verified = 10; // 根目录在本批末核验通过；不是原子快照或完整地图几何的证明。
+}
+message Snapshot {
+  CaptureIdentity identity = 1; // 身份、会话与采集序号；所有内容属于这个采集批次。
+  ClockDescriptor clock = 2; // 本批时间锚点所属的时钟域。
+  CaptureInterval interval = 3; // 本批的真实观察区间，不能伪装成同一游戏tick的原子快照。
+  Coverage coverage = 4; // 目录覆盖账本；各终态之和必须等于slots。
+  repeated Player players = 5; // 完整人物结果；每条都是本批重新采样，不能按缺失字段与旧人物合并。
+  repeated Weapon weapons = 6; // 完整武器结果；PlayerBody.active_weapon通过完整handle引用本集合。
+  repeated Bomb bombs = 7; // 本批炸弹结果。
+  repeated Projectile projectiles = 8; // 本批投掷物结果。
+  repeated EntityState world_objects = 9; // 当前已实现的火焰、人质、鸡等普通状态；不是场景几何全集。
+  Local local = 10; // 本地视图独立于身体是否存在，但当前仍在同一个完整批次采样。
+  World world = 11; // 本批世界状态。
+  // 每条都是完整替换状态，没有增量或基线。低频发布必须保持原capture_sequence及原时间。
+}
