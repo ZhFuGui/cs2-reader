@@ -1,0 +1,441 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\map_identity.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\map_identity.hpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\world\profile.hpp">
+      <Filter>game\cs2\world</Filter>
+    </ClInclude>
+    <Filter Include="game\cs2\world" />
+    <Filter Include="app">
+      <UniqueIdentifier>{C3F440AA-AAAC-48B8-97A5-9C9BA4FC5A5D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="diagnostics">
+      <UniqueIdentifier>{7D6D82EB-FB19-4BD1-858A-7E86B484B47A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform">
+      <UniqueIdentifier>{7B8DE4AE-0352-4041-AA84-4FEAD99CBC65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="platform\windows">
+      <UniqueIdentifier>{0409888B-6116-4696-8BC7-AA14C942E034}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="synchronization">
+      <UniqueIdentifier>{1EF40F1D-D5C0-4297-9882-CEAA70B61B14}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="protocol">
+      <UniqueIdentifier>{2AB72535-B3F7-4C0C-9F09-0C93C507F8A1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="protocol\reader">
+      <UniqueIdentifier>{A57BCE60-3675-4EC3-A8B4-D4CB12EE2284}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="protocol\reader\v1">
+      <UniqueIdentifier>{60AFA42F-75FA-4E7E-B36C-9028F910B7FA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sdk">
+      <UniqueIdentifier>{579919DD-6B94-4F96-91F5-31C19049A25D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="synchronization\v1">
+      <UniqueIdentifier>{436F405B-F143-437D-AF87-BF5A697FB523}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="transport">
+      <UniqueIdentifier>{208555B7-9AFE-486B-914F-FA031F1E4152}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\app\application.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\app\application.hpp">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\app\composition.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\app\composition.hpp">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\app\main.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\app\options.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\app\options.hpp">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\diagnostics\snapshot_sink.cpp">
+      <Filter>diagnostics</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\snapshot_sink.hpp">
+      <Filter>diagnostics</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\diagnostics\runtime_log.cpp">
+      <Filter>diagnostics</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\runtime_log.hpp">
+      <Filter>diagnostics</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\synchronization\json_snapshot.cpp">
+      <Filter>synchronization</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\synchronization\json_snapshot.hpp">
+      <Filter>synchronization</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\native_api.hpp">
+      <Filter>platform\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\process_catalog.hpp">
+      <Filter>platform\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\process_name.hpp">
+      <Filter>platform\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\qpc_clock.hpp">
+      <Filter>platform\windows</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\unique_handle.hpp">
+      <Filter>platform\windows</Filter>
+    </ClInclude>
+    <None Include="$(ReaderRoot)protocol\reader\v1\model.proto">
+      <Filter>protocol\reader\v1</Filter>
+    </None>
+    <None Include="$(ReaderRoot)protocol\reader\v1\snapshot.proto">
+      <Filter>protocol\reader\v1</Filter>
+    </None>
+    <None Include="$(ReaderRoot)protocol\reader\v1\reader.proto">
+      <Filter>protocol\reader\v1</Filter>
+    </None>
+    <None Include="$(ReaderRoot)protocol\reader\v1\contract.json">
+      <Filter>protocol\reader\v1</Filter>
+    </None>
+    <ClInclude Include="$(ReaderRoot)sdk\include\cs2_reader\v1\record.hpp">
+      <Filter>sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)sdk\include\cs2_reader\v1\schema.hpp">
+      <Filter>sdk</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\wire.cpp">
+      <Filter>synchronization\v1</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\projection.cpp">
+      <Filter>synchronization\v1</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\protocol.cpp">
+      <Filter>synchronization\v1</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\service.cpp">
+      <Filter>synchronization\v1</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\wire.hpp">
+      <Filter>synchronization\v1</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\projection.hpp">
+      <Filter>synchronization\v1</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\protocol.hpp">
+      <Filter>synchronization\v1</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\service.hpp">
+      <Filter>synchronization\v1</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\transport\tcp_server.cpp">
+      <Filter>transport</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\transport\tcp_server.hpp">
+      <Filter>transport</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\transport\ipv4.hpp">
+      <Filter>transport</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\transport\record.hpp">
+      <Filter>transport</Filter>
+    </ClInclude>
+    <None Include="$(ReaderRoot)protocol\reader\v1\schema-manifest.json">
+      <Filter>protocol\reader\v1</Filter>
+    </None>
+    <None Include="$(ReaderRoot)protocol\reader\v1\reader-v1.descriptor.pb">
+      <Filter>protocol\reader\v1</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="capture">
+      <UniqueIdentifier>{D7F9562B-AFE8-4B7A-8EF2-5BE54E2B0B0A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game">
+      <UniqueIdentifier>{453E546D-AE9B-4307-9722-6CBAE46ADEE4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\cs2">
+      <UniqueIdentifier>{57612470-1032-4370-8CD6-1CD5A10363AC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\cs2\entity">
+      <UniqueIdentifier>{90CC5365-881C-4B7A-990B-F2F810297386}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\cs2\offsets">
+      <UniqueIdentifier>{C83D02F1-F821-4BFB-A26A-97262B772E8D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\cs2\sampling">
+      <UniqueIdentifier>{ACB2599E-9463-41E5-95A2-9FB743195419}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="game\cs2\session">
+      <UniqueIdentifier>{48B0CC5D-468F-4909-8C04-351CB16BE037}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="memory">
+      <UniqueIdentifier>{FB866DBB-0D40-434B-A6D2-18F5692F702F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="model">
+      <UniqueIdentifier>{B616EDAA-4B6F-42B8-B01F-522C07403FBE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="backends">
+      <UniqueIdentifier>{03F547C6-798E-498D-A010-B6A65DF77262}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="backends\r3">
+      <UniqueIdentifier>{3EE31BD4-9874-4A5E-A128-B8AC6E6304D2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="backends\hyperv">
+      <UniqueIdentifier>{08F4CB80-B709-416A-B649-69167C518C19}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="backends\hyperv\native">
+      <UniqueIdentifier>{311DCD63-7778-406F-9973-399764381A45}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(ReaderRoot)src\capture\clock.hpp">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\capture\collector.hpp">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\capture\worker_pool.hpp">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\directory.hpp">
+      <Filter>game\cs2\entity</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\layout.hpp">
+      <Filter>game\cs2\entity</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\offsets\catalog.hpp">
+      <Filter>game\cs2\offsets</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\common.hpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\local.hpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\player.hpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\weapon.hpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\world.hpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\session\context.hpp">
+      <Filter>game\cs2\session</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\backend.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\block_reader.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\read_channel.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\session.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\transfer_result.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\write_channel.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\living.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\local.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\snapshot.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\types.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\weapon.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\world.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\r3\backend.hpp">
+      <Filter>backends\r3</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\r3\channel.hpp">
+      <Filter>backends\r3</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\r3\session.hpp">
+      <Filter>backends\r3</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\backend.hpp">
+      <Filter>backends\hyperv</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\channel.hpp">
+      <Filter>backends\hyperv</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\hypercall.hpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\abi.hpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\batch.cpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\batch.hpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.hpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\session.hpp">
+      <Filter>backends\hyperv</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\capture\collector.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\capture\worker_pool.cpp">
+      <Filter>capture</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\entity\directory.cpp">
+      <Filter>game\cs2\entity</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\offsets\catalog.cpp">
+      <Filter>game\cs2\offsets</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\common.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\local.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\player.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\weapon.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\world.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\session\context.cpp">
+      <Filter>game\cs2\session</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\memory\block_reader.cpp">
+      <Filter>memory</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\memory\module_walker.cpp">
+      <Filter>memory</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\r3\backend.cpp">
+      <Filter>backends\r3</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\r3\channel.cpp">
+      <Filter>backends\r3</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\r3\session.cpp">
+      <Filter>backends\r3</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\backend.cpp">
+      <Filter>backends\hyperv</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\channel.cpp">
+      <Filter>backends\hyperv</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\hypercall.cpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.cpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\session.cpp">
+      <Filter>backends\hyperv</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="$(ReaderRoot)src\backends\hyperv\native\invoke.asm">
+      <Filter>backends\hyperv\native</Filter>
+    </MASM>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(ReaderRoot)src\capture\frequency_control.hpp"><Filter>capture</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="game\cs2\skeleton"><UniqueIdentifier>{15B7CC83-8331-4C6F-B30B-E359D2D1C9B4}</UniqueIdentifier></Filter>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\skeleton.cpp"><Filter>game\cs2\sampling</Filter></ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\skeleton.hpp"><Filter>game\cs2\sampling</Filter></ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\skeleton\profile.cpp"><Filter>game\cs2\skeleton</Filter></ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\skeleton\profile.hpp"><Filter>game\cs2\skeleton</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\skeleton\pose.hpp"><Filter>game\cs2\skeleton</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\skeleton\hitboxes_14192.hpp"><Filter>game\cs2\skeleton</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\skeleton\agents_14192.hpp"><Filter>game\cs2\skeleton</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\skeleton.hpp"><Filter>model</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="game\cs2\recoil"><UniqueIdentifier>{486CB5EA-63E2-4C48-980D-64309F93151E}</UniqueIdentifier></Filter>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\recoil.cpp"><Filter>game\cs2\sampling</Filter></ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\recoil.hpp"><Filter>game\cs2\sampling</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\recoil\profile.hpp"><Filter>game\cs2\recoil</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\recoil.hpp"><Filter>model</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="game\cs2\input"><UniqueIdentifier>{B519B3C4-8F2B-43C4-AC67-FBFDF62FBD73}</UniqueIdentifier></Filter>
+    <Filter Include="game\cs2\eye"><UniqueIdentifier>{3995D90A-86F9-4A62-8ACD-C226327D6C48}</UniqueIdentifier></Filter>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\eye.cpp"><Filter>game\cs2\sampling</Filter></ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\direction.cpp"><Filter>game\cs2\sampling</Filter></ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\direction.hpp"><Filter>game\cs2\sampling</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\eye.hpp"><Filter>game\cs2\sampling</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\eye\profile.hpp"><Filter>game\cs2\eye</Filter></ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\eye\history.cpp"><Filter>game\cs2\eye</Filter></ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\eye\history.hpp"><Filter>game\cs2\eye</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\eye\evaluation.hpp"><Filter>game\cs2\eye</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\eye\observation.hpp"><Filter>game\cs2\eye</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\eye.hpp"><Filter>model</Filter></ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\input.cpp"><Filter>game\cs2\sampling</Filter></ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\camera_recoil.cpp"><Filter>game\cs2\sampling</Filter></ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\camera_recoil.hpp"><Filter>game\cs2\sampling</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\input.hpp"><Filter>game\cs2\sampling</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\input\profile.hpp"><Filter>game\cs2\input</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\input.hpp"><Filter>model</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)sdk\include\cs2_reader\v1\recoil.hpp"><Filter>sdk</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="src\game\cs2\accuracy" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\accuracy\evaluation.cpp"><Filter>src\game\cs2\accuracy</Filter></ClCompile>
+
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\accuracy\evaluation.hpp"><Filter>src\game\cs2\accuracy</Filter></ClInclude>
+
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\accuracy\profile.hpp"><Filter>src\game\cs2\accuracy</Filter></ClInclude>
+    <Filter Include="src\game\cs2\sampling" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\accuracy.cpp"><Filter>src\game\cs2\sampling</Filter></ClCompile>
+
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\accuracy.hpp"><Filter>src\game\cs2\sampling</Filter></ClInclude>
+    <Filter Include="src\model" />
+    <ClInclude Include="$(ReaderRoot)src\model\accuracy.hpp"><Filter>src\model</Filter></ClInclude>
+    <Filter Include="src\memory" />
+    <ClInclude Include="$(ReaderRoot)src\memory\observation.hpp"><Filter>src\memory</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\accuracy\rules.cpp"><Filter>src\game\cs2\accuracy</Filter></ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\accuracy\rules.hpp"><Filter>src\game\cs2\accuracy</Filter></ClInclude>
+  </ItemGroup>
+</Project>

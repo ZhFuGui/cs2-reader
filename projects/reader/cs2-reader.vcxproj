@@ -1,0 +1,232 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{AC3FDDF4-D088-41AB-953D-00244E2406CA}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>cs2reader</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ReaderRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)\..\..'))</ReaderRoot>
+    <!-- /fp:strict 只在 accuracy/evaluation.cpp 上生效；置 false 可去掉 .fptable 段，但会改变浮点判定结果。 -->
+    <Cs2StrictFp Condition="'$(Cs2StrictFp)'==''">true</Cs2StrictFp>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
+  </ImportGroup>
+  <Import Project="$(ReaderRoot)build\artifacts.props" />
+  <Import Project="$(ReaderRoot)build\compiler.props" />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ReaderRoot)sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>ws2_32.lib;bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\map_identity.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\map_identity.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\world\profile.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\recoil.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\recoil.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\recoil\profile.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\recoil.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\skeleton.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\skeleton.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\skeleton\profile.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\skeleton\profile.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\skeleton\pose.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\skeleton\hitboxes_14192.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\skeleton\agents_14192.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\skeleton.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\app\application.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\app\application.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\app\composition.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\app\composition.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\app\main.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\app\options.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\app\options.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\diagnostics\snapshot_sink.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\snapshot_sink.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\diagnostics\runtime_log.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\runtime_log.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\synchronization\json_snapshot.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\synchronization\json_snapshot.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\native_api.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\process_catalog.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\process_name.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\qpc_clock.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\unique_handle.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\wire.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\projection.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\protocol.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\service.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\transport\tcp_server.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\wire.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\projection.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\protocol.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\service.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\transport\record.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\transport\tcp_server.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\transport\ipv4.hpp" />
+    <ClInclude Include="$(ReaderRoot)sdk\include\cs2_reader\v1\schema.hpp" />
+    <None Include="$(ReaderRoot)protocol\reader\v1\schema-manifest.json" />
+    <None Include="$(ReaderRoot)protocol\reader\v1\reader-v1.descriptor.pb" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(ReaderRoot)protocol\reader\v1\model.proto" />
+    <None Include="$(ReaderRoot)protocol\reader\v1\snapshot.proto" />
+    <None Include="$(ReaderRoot)protocol\reader\v1\reader.proto" />
+    <None Include="$(ReaderRoot)protocol\reader\v1\contract.json" />
+    <ClInclude Include="$(ReaderRoot)sdk\include\cs2_reader\v1\record.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(ReaderRoot)src\capture\clock.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\capture\frequency_control.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\capture\collector.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\capture\collector.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\capture\worker_pool.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\capture\worker_pool.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\entity\directory.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\directory.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\layout.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\offsets\catalog.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\offsets\catalog.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\common.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\common.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\local.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\local.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\player.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\player.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\weapon.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\weapon.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\world.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\world.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\session\context.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\session\context.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\backend.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\memory\block_reader.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\block_reader.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\memory\module_walker.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\read_channel.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\session.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\transfer_result.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\write_channel.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\living.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\local.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\snapshot.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\types.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\weapon.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\world.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\r3\backend.cpp">
+      <ObjectFileName>$(IntDir)src_backends_r3_backend.obj</ObjectFileName>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\backends\r3\backend.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\r3\channel.cpp">
+      <ObjectFileName>$(IntDir)src_backends_r3_channel.obj</ObjectFileName>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\backends\r3\channel.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\r3\session.cpp">
+      <ObjectFileName>$(IntDir)src_backends_r3_session.obj</ObjectFileName>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\backends\r3\session.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\backend.cpp">
+      <ObjectFileName>$(IntDir)src_backends_hyperv_backend.obj</ObjectFileName>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\backend.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\channel.cpp">
+      <ObjectFileName>$(IntDir)src_backends_hyperv_channel.obj</ObjectFileName>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\channel.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\hypercall.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\hypercall.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\abi.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\batch.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\batch.hpp" />
+    <MASM Include="$(ReaderRoot)src\backends\hyperv\native\invoke.asm" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\session.cpp">
+      <ObjectFileName>$(IntDir)src_backends_hyperv_session.obj</ObjectFileName>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\session.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\input.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\eye.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\direction.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\direction.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\eye\history.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\eye\history.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\eye\evaluation.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\eye\observation.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\eye.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\eye\profile.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\eye.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\camera_recoil.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\camera_recoil.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\input.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\input\profile.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\input.hpp" />
+    <ClInclude Include="$(ReaderRoot)sdk\include\cs2_reader\v1\recoil.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\accuracy\evaluation.cpp">
+      <FloatingPointModel Condition="'$(Cs2StrictFp)'=='true'">Strict</FloatingPointModel>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\accuracy\evaluation.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\accuracy\profile.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\accuracy.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\accuracy.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\accuracy.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\observation.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\accuracy\rules.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\accuracy\rules.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="$(ReaderRoot)resources\version.rc" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="VerifyFrozenProtocol" BeforeTargets="ClCompile">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ReaderRoot)build\verify_protocol.ps1&quot; -ReaderRoot &quot;$(ReaderRoot).&quot;" />
+  </Target>
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
+  </ImportGroup>
+  <Target Name="GenerateOffsetMetadata" BeforeTargets="ClCompile">
+    <MakeDir Directories="$(IntDir)generated" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ReaderRoot)build\generate_offset_metadata.ps1&quot; -InputPath &quot;$(ReaderRoot)output\info.json&quot; -OutputPath &quot;$(IntDir)generated\offset_metadata.hpp&quot;" />
+  </Target>
+  <!-- Release 不产生符号；历史上遗留的 .pdb 必须从产物目录清掉，否则等于随二进制附带完整符号表。 -->
+  <Target Name="RemoveReleaseSymbols" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
+    <Delete Files="$(OutDir)$(TargetName).pdb" ContinueOnError="true" />
+  </Target>
+</Project>
