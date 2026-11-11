@@ -1,0 +1,15 @@
+cs2-dumper generated offsets
+  Source: https://github.com/a2x/cs2-dumper
+  Only generated headers and build metadata required by this reader are distributed.
+  MIT license text is included as cs2-dumper-LICENSE.txt.
+
+hyper-reV transport ABI
+  Source: https://github.com/noahware/hyper-reV
+  The Hyper-V adapter interoperates with the existing user-mode read/write ABI.
+  Upstream GNU GPL version 3 is included as hyper-reV-LICENSE.txt.
+  No hypervisor installation, code-hook or memory-hiding functionality is included.
+
+GuestMemory / Hyper_rw reference
+  Original author: wz5200, copyright 2025.
+  Process binding and page-read behavior were reviewed against the prior reader.
+  The upstream attribution and license are included in Hyper_rw-LICENSE.txt.
