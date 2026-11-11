@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <BuildArtifactsRoot Condition="'$(BuildArtifactsRoot)'==''">$(ReaderRoot)</BuildArtifactsRoot>
+    <BuildIntermediatesRoot Condition="'$(BuildIntermediatesRoot)'==''">$(BuildArtifactsRoot)\obj</BuildIntermediatesRoot>
+    <OutDir>$(BuildArtifactsRoot)\bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(BuildIntermediatesRoot)\$(Platform)\$(Configuration)\$(MSBuildProjectName)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+    <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>--backend r3</LocalDebuggerCommandArguments>
+  </PropertyGroup>
+</Project>
