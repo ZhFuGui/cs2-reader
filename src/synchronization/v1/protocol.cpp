@@ -91,7 +91,7 @@ Message hello(const ServerIdentity& v) {
     Writer w;
     w.uint32(1, 1);
     (void)w.blob(2, cs2_reader::v1::schema_sha256);
-    w.uint32(3, v.hyperv ? 2U : 1U);
+    w.uint32(3, 2U); // 唯一后端；既有 Hyper-V 线协议编号不变。
     w.message(4, clock(v));
     w.real(5, v.capture_hz);
     w.boolean(6, true);

@@ -88,7 +88,7 @@ struct SubscriptionService::Impl final : transport::IRecordHandler {
             !options.maximum_connections || options.maximum_connections > 60 || !transport::parse_ipv4(options.bind_address))
             throw std::runtime_error("Invalid subscription service configuration");
         identity = {random_id(),        random_id(),    clock.frequency(),
-                    options.capture_hz, options.hyperv, options.bones_enabled};
+                    options.capture_hz, options.bones_enabled};
         try {
             encoder_thread = std::thread([this] { encode_loop(); });
             network_thread = std::thread([this] { network_loop(); });

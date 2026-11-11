@@ -144,18 +144,6 @@
     <ClInclude Include="$(ReaderRoot)src\model\types.hpp" />
     <ClInclude Include="$(ReaderRoot)src\model\weapon.hpp" />
     <ClInclude Include="$(ReaderRoot)src\model\world.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\backend.cpp">
-      <ObjectFileName>$(IntDir)src_backends_r3_backend.obj</ObjectFileName>
-    </ClCompile>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\backend.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\channel.cpp">
-      <ObjectFileName>$(IntDir)src_backends_r3_channel.obj</ObjectFileName>
-    </ClCompile>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\channel.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\session.cpp">
-      <ObjectFileName>$(IntDir)src_backends_r3_session.obj</ObjectFileName>
-    </ClCompile>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\session.hpp" />
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\backend.cpp">
       <ObjectFileName>$(IntDir)src_backends_hyperv_backend.obj</ObjectFileName>
     </ClCompile>

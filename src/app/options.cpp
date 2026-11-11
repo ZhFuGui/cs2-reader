@@ -36,15 +36,7 @@ Options parse_options(int argc, wchar_t** argv) {
         };
         if (key == L"--help" || key == L"-h")
             options.help = true;
-        else if (key == L"--backend") {
-            const auto value = next();
-            if (value == L"r3")
-                options.backend = memory::BackendKind::R3;
-            else if (value == L"hyperv")
-                options.backend = memory::BackendKind::HyperV;
-            else
-                throw std::runtime_error("Backend must be r3 or hyperv");
-        } else if (key == L"--pid") {
+        else if (key == L"--pid") {
             const auto value = integer(next());
             if (!value || value > UINT32_MAX)
                 throw std::runtime_error("PID is out of range");
@@ -111,11 +103,11 @@ Options parse_options(int argc, wchar_t** argv) {
 }
 void print_usage() {
 #if !defined(CS2_STEALTH)
-    std::cout << "reader --backend r3|hyperv [--pid N] [--hz 90] [--workers 4]\n"
+    std::cout << "reader [--pid N] [--hz 90] [--workers 4]\n"
                  "           [--once | --samples N] [--duration SECONDS] [--wait-seconds N] [--output FILE.jsonl]\n"
                  "           [--no-bones] [--read-write] [--no-service] [--port 13202] [--max-clients 8]\n"
                  "           [--bind 127.0.0.1 | --bind LAN_IPV4 | --bind 0.0.0.0] [--stop-event NAME] [--log-file]\n"
-                 "The backend is fixed for this process. Default: R3, read-only, automatic name discovery.\n"
+                 "Hyper-mem is the only backend. Default: read-only, automatic name discovery.\n"
                  "Read-only subscriptions use --bind (default 127.0.0.1). No remote write or backend switch commands.\n"
                  "Subscriptions may request 1..300 Hz at any time; the highest active request drives capture.\n"
                  "Runtime logs stay in a 1MiB memory ring; --log-file writes a random log in %TEMP%.\n"

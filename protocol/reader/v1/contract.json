@@ -22,7 +22,7 @@
     "direction": "客户端仅Subscribe和ClockQuery；服务端不接收任何内存写入命令",
     "backpressure": "每连接一条不可变发送中记录、一个最新完整待发共享状态，另有最多16条小控制记录。慢连接不阻塞采集；没有年龄淘汰",
     "invalidation": "明确失效状态撤销旧发布资格；若无法在有界队列中保证送达则关闭连接。断线与停止均使数据不可作为当前结果",
-    "restart_required": "编译换版后正常停止并以相同R3配置启动Reader；不需重启游戏或Windows",
+    "restart_required": "编译换版后正常停止并以相同启动参数启动Reader；不需重启游戏或Windows",
     "request_identity": "每连接request_id非零递增。等待匹配Subscribed确认；拒绝保留此前订阅。Hello.capture_hz和回执capture_hz是当时共享目标，不是最大允许值",
     "graceful_stop": "Ctrl+C或启动参数--stop-event指定的本地命名事件；连接断开使所有旧数据失去当前资格",
     "maximum_connections_default": 8,

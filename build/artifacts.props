@@ -7,6 +7,6 @@
     <IntDir>$(BuildIntermediatesRoot)\$(Platform)\$(Configuration)\$(MSBuildProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
-    <LocalDebuggerCommandArguments>--backend r3</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments></LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

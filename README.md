@@ -12,12 +12,11 @@ Release 无控制台、不生成 PDB，关闭未使用的 RTTI，并启用可复
 
 ```powershell
 msbuild cs2-reader.sln /m /p:Configuration=Release /p:Platform=x64
-.\bin\x64\Release\cs2-reader.exe --backend r3
-.\bin\x64\Release\cs2-reader.exe --backend hyperv
-.\bin\x64\Release\cs2-reader.exe --backend hyperv --bind 0.0.0.0 --port 13202
+.\bin\x64\Release\cs2-reader.exe
+.\bin\x64\Release\cs2-reader.exe --bind 0.0.0.0 --port 13202
 ```
 
-两种模式均自动寻找目标进程；模式在启动后固定。默认只读，`--help` 显示参数。偏移直接使用 `output`，目标 build 不匹配时拒绝采样。
+hyper-mem 是唯一后端，自动寻找目标进程，默认只读；不接受 `--backend` 选项。偏移直接使用 `output`，目标 build 不匹配时拒绝采样。
 
 Hyper-V 模式要求上游支持批量读取操作 11；启动时通过本进程自读验证。每次最多 64 项、合计 64KiB，超过时继续分批；长连续范围沿用单范围复制。日志的 `hc_single`、`hc_batch` 统计本批实际读取超调用次数，`read_calls` 仍为逻辑读取数量。
 

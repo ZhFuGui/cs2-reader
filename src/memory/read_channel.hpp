@@ -35,7 +35,7 @@ class IReadChannel {
     virtual ~IReadChannel() = default;
     virtual TransferResult read(Address address, void* destination, std::size_t bytes) noexcept = 0;
     // 同步完成；调用期间请求及互不重叠的目标缓冲必须独占、稳定。
-    // 默认实现供 R3 和离线通道复用，不引入后台队列。
+    // 默认实现供离线通道复用，不引入后台队列。
     virtual void read_many(std::span<ReadRequest> requests) noexcept {
         for (auto& request : requests)
             request.result = read(request.address, request.destination, request.bytes);

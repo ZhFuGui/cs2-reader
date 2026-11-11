@@ -52,7 +52,7 @@ int run(const Options& options, std::ostream& log) {
     struct Handler {
         ~Handler() { SetConsoleCtrlHandler(console_handler, FALSE); }
     } handler;
-    const auto backend = create_backend(options.backend); // 唯一选择点；后续没有切换或回退入口。
+    const auto backend = create_backend(); // 唯一选择点；后续没有切换或回退入口。
     const platform::windows::QpcClock clock;
     capture::FrequencyControl frequency(options.hz);
     struct StopEvent {
@@ -72,12 +72,12 @@ int run(const Options& options, std::ostream& log) {
     if (options.service) {
         service = std::make_unique<synchronization::v1::SubscriptionService>(
             synchronization::v1::ServiceOptions{options.port, options.maximum_clients, options.hz,
-                                                options.backend == memory::BackendKind::HyperV, options.bones,
+                                                options.bones,
                                                 options.bind_address},
             clock, &frequency);
         log << "Read-only subscription: " << options.bind_address << ':' << options.port << " / protocol v1\n";
     }
-    log << "Backend: " << (backend->kind() == memory::BackendKind::R3 ? "local" : "hypervisor")
+    log << "Backend: hyper-mem"
               << " (fixed), access=" << (options.access == memory::AccessMode::ReadOnly ? "read-only" : "read-write")
               << "\nOffset profile: build " << game::offsets::expected_build() << " / " << game::offsets::generated_at()
               << "\nWorkers: " << options.workers << ", target: " << options.hz << " Hz\n";

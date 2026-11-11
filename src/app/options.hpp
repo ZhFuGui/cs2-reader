@@ -5,7 +5,6 @@
 #include <string>
 namespace cs2::app {
 struct Options {
-    memory::BackendKind backend = memory::BackendKind::R3;
     memory::AccessMode access = memory::AccessMode::ReadOnly;
     std::optional<std::uint32_t> pid;
     std::optional<double> wait_seconds;

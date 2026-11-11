@@ -8,7 +8,6 @@ namespace cs2::backends {
 namespace {
 class HyperVBackend final : public memory::IBackend {
   public:
-    memory::BackendKind kind() const noexcept override { return memory::BackendKind::HyperV; }
     std::unique_ptr<memory::ISession> attach(memory::ProcessIdentity process, memory::AccessMode access) override {
         const auto caller_cr3 = hyperv::native::probe_address_space();
         if (!caller_cr3)

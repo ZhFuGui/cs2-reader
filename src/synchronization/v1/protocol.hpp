@@ -9,7 +9,6 @@ struct ServerIdentity {
     InstanceId instance{}, clock_domain{};
     std::uint64_t qpc_frequency{};
     double capture_hz{};
-    bool hyperv{};
     bool verified_bone_semantics{};
 };
 enum class Availability : unsigned { Waiting = 1, Ready = 2, Unavailable = 3, Stopping = 4 };

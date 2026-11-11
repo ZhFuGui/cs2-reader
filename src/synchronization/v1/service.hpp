@@ -10,7 +10,6 @@ struct ServiceOptions {
     std::uint16_t port = 13202;
     std::size_t maximum_connections = 8;
     double capture_hz = 90;
-    bool hyperv = false;
     bool bones_enabled = true;
     std::string bind_address = "127.0.0.1";
 };
