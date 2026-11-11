@@ -1,0 +1,67 @@
+# 默认全部忽略；只有以下产品文件允许入库。
+*
+
+# 仓库配置及简洁构建说明。
+!/.gitignore
+!/.gitattributes
+!/.clang-format
+!/README.md
+!/cs2-reader.sln
+
+# VS 工程与实际构建规则，按文件放行，目录中的开发脚本不放行。
+!/projects/
+!/projects/reader/
+!/projects/reader/cs2-reader.vcxproj
+!/projects/reader/cs2-reader.vcxproj.filters
+!/build/
+!/build/artifacts.props
+!/build/compiler.props
+!/build/generate_offset_metadata.ps1
+!/build/verify_protocol.ps1
+!/build/freeze_protocol.py
+!/resources/
+!/resources/version.rc
+
+# 产品 C++ 源码；Markdown、脚本、日志、导出和二进制均不在放行范围内。
+!/src/
+!/src/**/
+!/src/**/*.cpp
+!/src/**/*.hpp
+!/src/**/*.asm
+
+# 当前编译使用的偏移头文件和构建元数据。
+!/output/
+!/output/client_dll.hpp
+!/output/offsets.hpp
+!/output/info.json
+
+# 正式协议、冻结描述符和消费端 SDK。
+!/protocol/
+!/protocol/reader/
+!/protocol/reader/v1/
+!/protocol/reader/v1/*.proto
+!/protocol/reader/v1/contract.json
+!/protocol/reader/v1/schema-manifest.json
+!/protocol/reader/v1/reader-v1.descriptor.pb
+!/sdk/
+!/sdk/include/
+!/sdk/include/**/
+!/sdk/include/**/*.hpp
+
+# 保留依赖来源与许可证。
+!/third_party/
+!/third_party/NOTICE.txt
+!/third_party/cs2-dumper-LICENSE.txt
+!/third_party/Hyper_rw-LICENSE.txt
+!/third_party/hyper-reV-LICENSE.txt
+
+# 源码目录中的本机工具及测试辅助代码也不属于产品源码。
+**/.codex*/
+**/.claude*/
+**/tests/
+**/test/
+/src/**/test_*
+/src/**/test-*
+/src/**/*_test.*
+/src/**/*_tests.*
+/src/**/*_checks.*
