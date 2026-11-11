@@ -4,7 +4,7 @@
 ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
 ![VS2022](https://img.shields.io/badge/Visual_Studio-2022-5C2D91)
 
-用 Visual Studio 2022 打开 `cs2-reader.sln`，选择 **Release / x64**，构建解决方案。需要 C++ 桌面开发工具与 Windows SDK；Hyper-V 后端另需 SDK Debugging Tools x64 和已加载的对应 hyperv-guest-memory（不兼容旧 hyper-reV ABI）。
+用 Visual Studio 2022 打开 `cs2-reader.sln`，选择 **Release / x64**，构建解决方案。需要 C++ 桌面开发工具、Windows SDK 和已加载的 hyperv-guest-memory（不兼容旧 hyper-reV ABI）。首次绑定时从运行中的内核映像推断布局；内核模块查询需要 SeDebugPrivilege。
 
 默认关闭预编译头，Release 使用 `/MT`，Debug 使用 `/MTd`。启动项目为 `cs2-reader`。
 

@@ -18,7 +18,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
-      <AdditionalDependencies>ntdll.lib;advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ntdll.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">

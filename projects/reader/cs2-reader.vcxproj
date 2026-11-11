@@ -160,6 +160,8 @@
     <MASM Include="$(ReaderRoot)src\backends\hyperv\native\invoke.asm" />
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.cpp" />
     <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_image.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_image.hpp" />
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\session.cpp">
       <ObjectFileName>$(IntDir)src_backends_hyperv_session.obj</ObjectFileName>
     </ClCompile>
