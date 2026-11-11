@@ -1,0 +1,89 @@
+syntax = "proto3";
+package cs2.reader.v1;
+import "reader/v1/snapshot.proto";
+
+// 默认127.0.0.1:13202，同一端口支持多个长期只读连接。
+// 每条记录为4字节大端正文长度+Envelope，正文1..16MiB。没有UDP、分片、旧协议回退或命令写内存。
+// Hello仅声明已实现能力；服务没有目标进程写入或运行时切换后端入口。
+enum BackendMode {
+  BACKEND_UNSPECIFIED = 0; // 未明确后端，不能自行推测。
+  BACKEND_R3 = 1; // 启动时固定的ntdll后端。
+  BACKEND_HYPERV = 2; // 启动时固定的既有Hyper-V后端。
+}
+message Hello {
+  uint32 protocol_version = 1; // 当前版本为1；不匹配直接拒绝，不套用PUBG协议。
+  bytes schema_sha256 = 2; // 冻结descriptor的32字节摘要，不是payload序列化摘要。
+  BackendMode backend = 3; // 当前固定后端，不接受消费者切换。
+  ClockDescriptor clock = 4; // 当前Reader的时钟域与频率。
+  double capture_hz = 5; // 握手时的共享采集目标，后续可随订阅变化；不是最大允许频率或实际FPS。
+  bool full_snapshots = 6; // 是否已经实现完整快照订阅。
+  bool clock_exchange = 7; // 是否已经实现下面的时钟往返。
+  bool independent_group_timestamps = 8; // 当前能力为false；不能给Local和人物杜撰独立时间。
+  bool verified_bone_semantics = 9; // 是否启用按模型核验的骨骼采集能力；每个人物仍须检查Skeleton.status与点/连线存在性。
+  bool readonly_service = 10; // 服务只提供数据、状态和时钟；没有目标进程写入命令。
+  bool recoil_time_state = 11; // 支持按当前build采集AimPunch分量与游戏时间；逐组检查存在性，不表示鼠标映射或输入能力已核验。
+  bool map_identity = 12; // 支持 World.map_identity 的原生地图身份与独立观察代次；逐快照检查状态，不表示已加载任何碰撞场景。
+  bool bone_world_pose = 13; // 是否启用已核验模型的逐骨世界旋转及累计均匀缩放；须检查每点成组存在性，不代表已取得或选定Hitbox资源。
+  bool weapon_accuracy_evaluation = 14; // 支持完整Inaccuracy和独立Spread观察；每武器/每结果仍须检查status/value，物理或脏速度等未支持分支明确不可用。
+}
+message Subscribe {
+  fixed64 request_id = 1; // 本连接请求序号，回执原样返回。
+  uint32 protocol_version = 2; // 请求版本，当前为1。
+  bytes schema_sha256 = 3; // 客户端支持的descriptor摘要，不符不能静默接入。
+  optional double maximum_publish_hz = 4; // 1..300Hz显式请求，允许小数；同连接可重新订阅。缺失跟随完整采集，不单独提高共享需求。
+}
+message Subscribed {
+  fixed64 request_id = 1; // 被接受的订阅请求序号。
+  double capture_hz = 2; // 该请求被接纳时全部显式订阅的最高频率，无显式需求时采用启动默认90Hz；下一开批生效。
+  double maximum_publish_hz = 3; // 接纳的本连接发布目标；跟随模式表示回执当时共享目标，不承诺实际达成率。
+}
+enum Availability {
+  AVAILABILITY_UNSPECIFIED = 0; // 没有有效状态，不能用于显示或输出。
+  AVAILABILITY_WAITING_FOR_PROCESS = 1; // 当前没有可绑定目标。
+  AVAILABILITY_READY = 2; // 允许等待后续完整快照；本状态消息本身不是一个新采样。
+  AVAILABILITY_UNAVAILABLE = 3; // 当前批次或共享链失效，撤销旧发布资格，不继续显示为CURRENT。
+  AVAILABILITY_STOPPING = 4; // 用户停止优先，消费者撤销会话。
+}
+message Status {
+  Availability availability = 1; // 这个服务事件明确的状态。
+  optional fixed64 process_session_epoch = 2; // 如已建立会话，指明该代次；缺失不是0代次。
+  optional fixed64 last_successful_capture_sequence = 3; // 仅表示历史进展，不能复活历史数据。
+  string reason_code = 4; // 稳定的机器可读原因，例如ROOT_UNAVAILABLE，不携带本机内存地址。
+}
+message ClockQuery {
+  fixed64 request_id = 1; // 与一次往返绑定的请求标识。
+}
+message ClockSample {
+  fixed64 request_id = 1; // 对应请求标识。
+  ClockDescriptor clock = 2; // 下述两个锚点的Reader时钟域。
+  optional fixed64 received_qpc = 3; // Reader收完整个ClockQuery记录后立即记录。
+  optional fixed64 send_started_qpc = 4; // 本响应封装完成、第一次发送调用前记录；原位盖戳开销属于发送阶段。
+  // 客户端自行记录其发送前t0及完整响应接收后t3，用两个频率归一化后估算映射与误差。
+  // 不采用Node Date.now与C++ QPC直接相减。映射未验证时只能展示未对齐状态。
+}
+message Reject {
+  fixed64 request_id = 1; // 被拒绝的请求序号。
+  string reason_code = 2; // 稳定原因，例如VERSION_MISMATCH、SCHEMA_MISMATCH、UNSUPPORTED_RATE。
+  string detail = 3; // 可供人工理解的简短说明，不包含纯调试链条或地址。
+}
+message Heartbeat {
+  optional fixed64 last_successful_capture_sequence = 1; // 最近成功采集进展，不制造新采样。
+  fixed64 coalesced_pending_states = 2; // 本连接尚未开始发送而被更新完整状态替代的次数。
+}
+message Envelope {
+  uint32 protocol_version = 1; // 当前版本1。
+  bytes reader_instance_id = 2; // 服务器消息的16字节实例标识；客户端请求可缺失。
+  fixed64 event_sequence = 3; // 服务器本连接事件序号，严格递增；状态与数据共用排序，失败不能被旧成功覆盖。
+  optional fixed64 send_started_qpc = 4; // 本记录首次发送调用前的QPC；没有真实锚点时保持缺失，不能填0或借用别帧。
+  oneof body {
+    Hello hello = 10; // 服务握手，先于订阅数据。
+    Subscribe subscribe = 11; // 只读订阅请求。
+    Subscribed subscribed = 12; // 成功订阅回执。
+    Snapshot snapshot = 13; // 完整替换快照。
+    Status status = 14; // 明确的可用性或撤销事件。
+    ClockQuery clock_query = 15; // 客户端时钟往返请求。
+    ClockSample clock_sample = 16; // Reader时钟往返响应。
+    Reject reject = 17; // 明确拒绝，不用空列表冒充成功。
+    Heartbeat heartbeat = 18; // 活性与背压计数，不是新采样。
+  }
+}
