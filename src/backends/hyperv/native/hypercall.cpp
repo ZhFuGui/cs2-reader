@@ -41,7 +41,86 @@ void prepare(const void* source, std::size_t bytes) noexcept {
     for (std::size_t offset = 4096 - (reinterpret_cast<std::uintptr_t>(source) & 4095); offset < bytes; offset += 4096)
         (void)input[offset];
 }
+bool link_address(std::uint64_t address) noexcept {
+    return address && !(address & 7) && range(address, 16);
+}
 } // namespace
+bool find_list(std::uint64_t source_cr3, const abi::ListFindRequest& query, abi::ListFindResult& result) noexcept {
+    const auto input = reinterpret_cast<std::uint64_t>(&query);
+    const auto output = reinterpret_cast<std::uint64_t>(&result);
+    // 重叠时不能先清空输出，否则会破坏请求。
+    if (!range(input, sizeof(query)) || !range(output, sizeof(result)) ||
+        (input <= output ? output - input < sizeof(query) : input - output < sizeof(result)))
+        return false;
+    result = {};
+    const auto end = static_cast<std::uint64_t>(query.window_offset) + query.window_size;
+    if (!(source_cr3 & 0x0000FFFFFFFFF000ULL) || (source_cr3 >> 48) ||
+        query.version != abi::list_version || query.struct_size != sizeof(query) ||
+        !link_address(query.head_va) || !query.window_size || query.window_size > abi::list_max_window ||
+        !query.key_size || query.key_size > abi::list_max_key || query.node_budget > abi::list_max_nodes ||
+        query.window_offset > query.link_offset || query.window_offset > query.key_offset ||
+        end < static_cast<std::uint64_t>(query.link_offset) + 16 ||
+        end < static_cast<std::uint64_t>(query.key_offset) + query.key_size ||
+        (!query.resume_link && query.expected_prev) ||
+        (query.resume_link && (!link_address(query.resume_link) || !link_address(query.expected_prev) ||
+                              query.resume_link == query.head_va || query.resume_link == query.expected_prev)))
+        return false;
+    prepare(static_cast<const void*>(&query), sizeof(query));
+    prepare(&result, sizeof(result));
+    const auto call = abi::request(abi::Operation::FindList, source_cr3, input, output);
+    if (invoke(call) != 1) {
+        result = {};
+        return false;
+    }
+    const auto budget = query.node_budget ? query.node_budget : abi::list_default_nodes;
+    bool valid = result.visited <= budget && result.reserved == 0;
+    switch (result.status) {
+    case abi::ListStatus::Found:
+        valid = valid && result.visited && result.object_va && range(result.object_va, 1) &&
+                query.window_offset <= UINT64_MAX - result.object_va &&
+                range(result.object_va + query.window_offset, query.window_size) &&
+                result.window_size == query.window_size && !result.next_link && !result.previous_link &&
+                std::memcmp(result.window + query.key_offset - query.window_offset, query.key, query.key_size) == 0;
+        break;
+    case abi::ListStatus::More:
+        valid = valid && result.visited == budget && !result.object_va && !result.window_size &&
+                link_address(result.next_link) && link_address(result.previous_link) &&
+                result.next_link != result.previous_link && result.next_link != query.head_va;
+        break;
+    case abi::ListStatus::NotFound:
+    case abi::ListStatus::Unreadable:
+    case abi::ListStatus::Inconsistent:
+        valid = valid && !result.object_va && !result.window_size && !result.next_link && !result.previous_link;
+        break;
+    default:
+        valid = false;
+    }
+    if (!valid) result = {};
+    return valid;
+}
+bool probe_list_find(std::uint64_t caller_cr3) noexcept {
+    struct Node { std::uint64_t next, previous, key; };
+    std::array<std::uint64_t, 2> head{};
+    std::array<Node, 2> nodes{};
+    const auto head_va = reinterpret_cast<std::uint64_t>(head.data());
+    const auto first = reinterpret_cast<std::uint64_t>(&nodes[0]);
+    const auto second = reinterpret_cast<std::uint64_t>(&nodes[1]);
+    head = {first, second};
+    nodes[0] = {second, head_va, 0x14DAB87C923E610FULL};
+    nodes[1] = {head_va, first, 0x67C2E91A4B503DF8ULL};
+    abi::ListFindRequest query{};
+    query.version = abi::list_version;
+    query.struct_size = sizeof(query);
+    query.head_va = head_va;
+    query.window_size = sizeof(Node);
+    query.key_offset = offsetof(Node, key);
+    query.key_size = sizeof(nodes[1].key);
+    std::memcpy(query.key, &nodes[1].key, sizeof(nodes[1].key));
+    abi::ListFindResult result{};
+    return find_list(caller_cr3, query, result) && result.status == abi::ListStatus::Found &&
+           result.visited == 2 && result.object_va == second &&
+           std::memcmp(result.window, &nodes[1], sizeof(Node)) == 0;
+}
 std::size_t read(std::uint64_t caller_cr3, std::uint64_t source_cr3, std::uint64_t address, void* output,
                  std::size_t bytes, ReadCounters* counters) noexcept {
     if ((!output && bytes) || !range(address, bytes) || !range(reinterpret_cast<std::uint64_t>(output), bytes) ||

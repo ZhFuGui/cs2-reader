@@ -1,4 +1,5 @@
 #pragma once
+#include "backends/hyperv/native/abi.hpp"
 #include <cstddef>
 #include <cstdint>
 
@@ -9,6 +10,10 @@ struct ReadCounters {
 };
 // 握手与本进程自读成功后返回调用方 CR3；不可用或协议不匹配返回 0。
 std::uint64_t probe_address_space() noexcept;
+bool probe_list_find(std::uint64_t caller_cr3) noexcept;
+// true 仅代表完整结果有效；必须分别处理 Found/More/失败状态。
+// 请求和结果必须独占且不重叠；不保留指针，不提供原子快照或对象引用。
+bool find_list(std::uint64_t source_cr3, const abi::ListFindRequest&, abi::ListFindResult&) noexcept;
 // caller_cr3 来自当前绑定的成功探针，避免每次读取都额外查询 CR3。
 // 上游只返回 bool：只有明确成功才返回 bytes，失败不推测已复制的前缀长度。
 std::size_t read(std::uint64_t caller_cr3, std::uint64_t source_cr3, std::uint64_t address, void* output,

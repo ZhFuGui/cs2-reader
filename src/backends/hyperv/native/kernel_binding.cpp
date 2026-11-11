@@ -167,7 +167,7 @@ KernelLayout infer_layout(std::uint64_t caller_cr3) {
 } // namespace
 
 KernelLayout resolve_kernel_layout(std::uint64_t caller_cr3) {
-    // 缓存成功结果和确定失败；不为每次 CS2 重绑重复进行系统模块查询。
+    // 缓存成功结果和确定失败，避免每次 CS2 重绑重复解析内核布局。
     static std::mutex mutex;
     static std::optional<KernelLayout> cached;
     static std::string failure;
@@ -183,25 +183,74 @@ KernelLayout resolve_kernel_layout(std::uint64_t caller_cr3) {
         throw std::runtime_error("Kernel layout inference failed: " + failure);
     return *cached;
 }
-ProcessBinding resolve_process(const KernelLayout& layout, memory::ProcessIdentity process, std::uint64_t caller_cr3) {
-    const auto head = layout.process_head;
-    auto link = value(caller_cr3, head);
-    std::set<std::uint64_t> seen;
-    while (link != head) {
-        if (!pointer(link) || link < kernel_min + layout.links || !seen.insert(link).second || seen.size() > 65536)
-            throw std::runtime_error("Invalid kernel process list");
-        const auto object = link - layout.links;
-        if (value(caller_cr3, object + layout.pid) == process.pid) {
-            const auto created = value(caller_cr3, object + layout.created);
-            const ProcessBinding result{value(caller_cr3, object + layout.cr3), value(caller_cr3, object + layout.peb)};
-            if (created != process.creation_time || value(caller_cr3, object + layout.pid) != process.pid ||
-                value(caller_cr3, object + layout.created) != created || !result.cr3 || (result.cr3 & 4095) ||
-                !memory::user_range(result.peb))
-                throw std::runtime_error("Process instance changed during binding");
+ProcessBinding resolve_process(const KernelLayout& layout, memory::ProcessIdentity process, std::uint64_t caller_cr3,
+                               ProcessLookupStats* statistics) {
+    ProcessLookupStats work{};
+    const auto start = std::min({layout.pid, layout.links, layout.cr3, layout.peb, layout.created});
+    const auto end = std::max({std::uint64_t(layout.pid) + 8, std::uint64_t(layout.links) + 16,
+                               std::uint64_t(layout.cr3) + 8, std::uint64_t(layout.peb) + 8,
+                               std::uint64_t(layout.created) + 8});
+    if (end - start > abi::list_max_window)
+        throw std::runtime_error("Kernel process binding fields exceed list-find window");
+    abi::ListFindRequest query{};
+    query.version = abi::list_version;
+    query.struct_size = sizeof(query);
+    query.head_va = layout.process_head;
+    query.link_offset = layout.links;
+    query.window_offset = start;
+    query.window_size = static_cast<std::uint32_t>(end - start);
+    query.key_offset = layout.pid;
+    query.key_size = 8;
+    const std::uint64_t pid = process.pid;
+    std::memcpy(query.key, &pid, sizeof(pid));
+    // 每调用最多 1024 节点；整轮（包括链变动重启）保留明确的资源边界。
+    constexpr std::uint32_t max_nodes = 65536, max_calls = 128, max_restarts = 2;
+    std::set<std::pair<std::uint64_t, std::uint64_t>> cursors;
+    while (work.nodes < max_nodes && work.calls < max_calls) {
+        query.node_budget = std::min(abi::list_default_nodes, max_nodes - work.nodes);
+        abi::ListFindResult found{};
+        ++work.calls;
+        const auto published = find_list(caller_cr3, query, found);
+        work.nodes += found.visited;
+        if (statistics) *statistics = work;
+        if (!published)
+            throw std::runtime_error("Hypervisor list-find failed or returned an invalid result");
+        switch (found.status) {
+        case abi::ListStatus::Found: {
+            const auto field = [&](std::uint32_t offset) {
+                std::uint64_t result = 0;
+                std::memcpy(&result, found.window + offset - start, sizeof(result));
+                return result;
+            };
+            const ProcessBinding result{field(layout.cr3), field(layout.peb), found.object_va};
+            if (field(layout.pid) != process.pid || field(layout.created) != process.creation_time ||
+                !pointer(result.object) || !result.cr3 || (result.cr3 & 4095) || !memory::user_range(result.peb))
+                throw std::runtime_error("Process instance changed during list-find binding");
             return result;
         }
-        link = value(caller_cr3, link);
+        case abi::ListStatus::More:
+            if (!cursors.emplace(found.next_link, found.previous_link).second)
+                throw std::runtime_error("Kernel list-find continuation repeated a cursor");
+            query.resume_link = found.next_link;
+            query.expected_prev = found.previous_link;
+            break;
+        case abi::ListStatus::Inconsistent:
+            if (work.restarts >= max_restarts)
+                throw std::runtime_error("Kernel process list remained inconsistent during lookup");
+            ++work.restarts;
+            if (statistics) *statistics = work;
+            query.resume_link = query.expected_prev = 0;
+            cursors.clear();
+            Sleep(1);
+            break;
+        case abi::ListStatus::Unreadable:
+            throw std::runtime_error("Kernel process list is unreadable during lookup");
+        case abi::ListStatus::NotFound:
+            throw std::runtime_error("Target process is absent from the kernel process list");
+        default:
+            throw std::runtime_error("Unexpected kernel list-find status");
+        }
     }
-    throw std::runtime_error("Target process is absent from the kernel process list");
+    throw std::runtime_error("Kernel process lookup exceeded total continuation work budget");
 }
 } // namespace cs2::backends::hyperv::native

@@ -14,6 +14,8 @@ class HyperVBackend final : public memory::IBackend {
             throw std::runtime_error("hypervisor handshake or self-read failed; no fallback path");
         if (!hyperv::native::probe_batch(caller_cr3))
             throw std::runtime_error("hypervisor batch self-read failed; batch-capable backend required");
+        if (!hyperv::native::probe_list_find(caller_cr3))
+            throw std::runtime_error("hypervisor list-find self-read failed; operation 12 required");
         const auto layout = hyperv::native::resolve_kernel_layout(caller_cr3);
         const auto address_space = hyperv::native::resolve_process(layout, process, caller_cr3);
         const auto observed = platform::windows::query_identity(process.pid);

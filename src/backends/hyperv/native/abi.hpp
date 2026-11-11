@@ -10,7 +10,7 @@ namespace cs2::backends::hyperv::native::abi {
 inline constexpr std::uint64_t allowed_key = 0x8A3B55C7927ULL;
 inline constexpr std::uint64_t test_response = 0x1337;
 enum class Operation : std::uint16_t {
-    Test = 0, CurrentCr3 = 1, PhysicalCopy = 2, VirtualCopy = 3, TranslateVa = 4, ReadBatch = 11
+    Test = 0, CurrentCr3 = 1, PhysicalCopy = 2, VirtualCopy = 3, TranslateVa = 4, ReadBatch = 11, FindList = 12
 };
 
 inline constexpr std::size_t batch_max_items = 64, batch_max_bytes = 64 * 1024;
@@ -21,6 +21,30 @@ static_assert(std::is_standard_layout_v<BatchItem> && std::is_trivially_copyable
 static_assert(sizeof(BatchItem) == 24 && alignof(BatchItem) == 8);
 static_assert(offsetof(BatchItem, source_va) == 0 && offsetof(BatchItem, destination_va) == 8 &&
               offsetof(BatchItem, size) == 16);
+
+// 对照上游 shared/list_find.hpp；版本及固定布局不可随本地命名改变。
+inline constexpr std::uint32_t list_version = 1, list_default_nodes = 1024, list_max_nodes = 4096;
+inline constexpr std::uint32_t list_max_window = 1024, list_max_key = 16;
+enum class ListStatus : std::uint32_t { Found = 1, NotFound = 2, More = 3, Unreadable = 4, Inconsistent = 5 };
+struct ListFindRequest {
+    std::uint32_t version, struct_size;
+    std::uint64_t head_va, resume_link, expected_prev;
+    std::uint32_t link_offset, window_offset, window_size, key_offset, key_size, node_budget;
+    std::uint8_t key[list_max_key];
+};
+struct ListFindResult {
+    ListStatus status;
+    std::uint32_t visited;
+    std::uint64_t object_va, next_link, previous_link;
+    std::uint32_t window_size, reserved;
+    std::uint8_t window[list_max_window];
+};
+static_assert(std::is_standard_layout_v<ListFindRequest> && std::is_trivially_copyable_v<ListFindRequest>);
+static_assert(std::is_standard_layout_v<ListFindResult> && std::is_trivially_copyable_v<ListFindResult>);
+static_assert(sizeof(ListFindRequest) == 72 && alignof(ListFindRequest) == 8);
+static_assert(offsetof(ListFindRequest, head_va) == 8 && offsetof(ListFindRequest, key) == 56);
+static_assert(sizeof(ListFindResult) == 1064 && alignof(ListFindResult) == 8);
+static_assert(offsetof(ListFindResult, object_va) == 8 && offsetof(ListFindResult, window) == 40);
 
 struct Request {
     std::uint64_t info;
