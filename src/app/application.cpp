@@ -2,6 +2,7 @@
 #include "app/composition.hpp"
 #include "capture/collector.hpp"
 #include "diagnostics/snapshot_sink.hpp"
+#include "diagnostics/obf.hpp"
 #include "game/cs2/offsets/catalog.hpp"
 #include "platform/windows/process_catalog.hpp"
 #include "platform/windows/qpc_clock.hpp"
@@ -24,15 +25,7 @@ BOOL WINAPI console_handler(DWORD signal) {
 std::optional<memory::ProcessIdentity> target(const Options& options) {
     using namespace platform::windows;
     constexpr auto name = process_name(L"cs2.exe");
-    if (!options.pid)
-        return find_process(name);
-    for (const auto& process : query_processes())
-        if (process.identity.pid == *options.pid) {
-            if (process.name != name)
-                throw std::runtime_error("Selected PID does not match the configured executable name");
-            return process.identity;
-        }
-    return std::nullopt;
+    return find_process(name, options.pid);
 }
 void pause_until(std::chrono::steady_clock::time_point deadline, capture::FrequencyControl* frequency = nullptr,
                  std::uint64_t revision = 0) {
@@ -94,9 +87,33 @@ int run(const Options& options, std::ostream& log) {
                     *options.duration_seconds);
     };
     auto next_status = wait_started;
+    std::unique_ptr<memory::ISession> session;
+    std::optional<memory::ProcessIdentity> process;
+    bool discard_session = false;
     while (running()) {
-        auto process = target(options);
-        if (!process) {
+        if (discard_session) {
+            session.reset(); // 上一轮 Collector 已经析构，再释放其引用的会话。
+            discard_session = false;
+        }
+        if (!session) {
+            process = target(options); // 同一快照可供选择、内核自证和绑定复用。
+            if (!process) {
+                try {
+                    // 未发现游戏时只轮询 hypervisor；出现候选才触发一次原生快照。
+                    const auto hint = backend->find_process_hint(OBF("cs2.exe").c_str());
+                    if (hint && (!options.pid || hint->pid == *options.pid)) {
+                        platform::windows::invalidate_process_catalog();
+                        process = target(options);
+                    }
+                } catch (const std::exception& error) {
+                    if (std::chrono::steady_clock::now() >= next_status) {
+                        log << "Process discovery unavailable: " << error.what() << '\n';
+                        next_status = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+                    }
+                }
+            }
+        }
+        if (!session && !process) {
             if (service)
                 service->unavailable(Availability::Waiting, "WAITING_FOR_PROCESS");
             const auto now = std::chrono::steady_clock::now();
@@ -112,7 +129,24 @@ int run(const Options& options, std::ostream& log) {
             pause_until(now + std::chrono::milliseconds(500));
             continue;
         }
-        auto session = backend->attach(*process, options.access);
+        if (!session) {
+            try {
+                session = backend->attach(*process, options.access);
+            } catch (const std::exception& error) {
+                if (service) service->unavailable(Availability::Unavailable, "PROCESS_BINDING_UNAVAILABLE");
+                // 仅当内核线索确认身份已变，才令原生快照失效；绑定故障不反复枚举。
+                try {
+                    const auto hint = backend->find_process_hint(OBF("cs2.exe").c_str());
+                    if (!hint || *hint != *process) platform::windows::invalidate_process_catalog();
+                } catch (const std::exception&) {}
+                if (std::chrono::steady_clock::now() >= next_status) {
+                    log << "Process binding unavailable: " << error.what() << '\n';
+                    next_status = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+                }
+                pause_until(std::chrono::steady_clock::now() + std::chrono::milliseconds(500));
+                continue;
+            }
+        }
         auto bootstrap = session->open_reader();
         game::Context context;
         try {
@@ -125,18 +159,26 @@ int run(const Options& options, std::ostream& log) {
                 log << error.what() << '\n';
                 next_status = now + std::chrono::seconds(3);
             }
+            if (session->state() != memory::ProcessState::Current) {
+                session.reset();
+                platform::windows::invalidate_process_catalog();
+            }
             pause_until(now + std::chrono::milliseconds(500));
             continue;
         }
         ++epoch;
         capture::Collector collector(*session, context, clock, options.workers, options.bones);
-        log << "Attached PID " << process->pid << ", build " << context.build << ", epoch " << epoch << '\n';
+        const auto native_queries = platform::windows::process_catalog_stats();
+        log << "Attached PID " << process->pid << ", build " << context.build << ", epoch " << epoch
+            << " native_length_queries=" << native_queries.length_queries
+            << " native_snapshot_queries=" << native_queries.snapshot_queries << '\n';
         log.flush();
         auto rate = frequency.current();
         auto period = std::chrono::nanoseconds(static_cast<std::int64_t>(1e9 / rate.hz));
         auto next = std::chrono::steady_clock::now();
         auto last_alive = next;
         next_status = next;
+        auto invalid_state = memory::ProcessState::Current;
         while (running()) {
             const auto now = std::chrono::steady_clock::now();
             const auto requested = frequency.current();
@@ -146,9 +188,11 @@ int run(const Options& options, std::ostream& log) {
                 next = now; // 调频重新开始时间线，不补采旧周期。
             }
             if (now - last_alive >= std::chrono::seconds(1)) {
-                if (!session->alive()) {
+                invalid_state = session->state();
+                if (invalid_state != memory::ProcessState::Current) {
                     if (service)
-                        service->unavailable(Availability::Unavailable, "PROCESS_EXITED", epoch);
+                        service->unavailable(Availability::Unavailable,
+                            invalid_state == memory::ProcessState::Exited ? "PROCESS_EXITED" : "PROCESS_BINDING_UNAVAILABLE", epoch);
                     break;
                 }
                 last_alive = now;
@@ -212,6 +256,8 @@ int run(const Options& options, std::ostream& log) {
                     log << "Capture unavailable: " << error.what() << '\n';
                     next_status = std::chrono::steady_clock::now() + std::chrono::seconds(1);
                 }
+                invalid_state = session->state();
+                if (invalid_state != memory::ProcessState::Current) break;
             }
             next += period;
             const auto finished = std::chrono::steady_clock::now();
@@ -222,8 +268,12 @@ int run(const Options& options, std::ostream& log) {
             }
             pause_until(next, &frequency, rate.revision);
         }
-        if (options.pid && running()) {
-            log << "The selected process instance has exited.\n";
+        if (running()) {
+            discard_session = true;
+            platform::windows::invalidate_process_catalog();
+        }
+        if (options.pid && running() && invalid_state != memory::ProcessState::Unreadable) {
+            log << "The selected process instance has exited or changed.\n";
             return 3;
         }
     }
@@ -231,7 +281,10 @@ int run(const Options& options, std::ostream& log) {
         service->unavailable(Availability::Stopping, "USER_STOP",
                              epoch ? std::optional<std::uint64_t>(epoch) : std::nullopt);
     service.reset();
-    log << "Stopped. captures=" << sequence << " failed=" << failures << " missed_opportunities=" << missed;
+    const auto native_queries = platform::windows::process_catalog_stats();
+    log << "Stopped. captures=" << sequence << " failed=" << failures << " missed_opportunities=" << missed
+        << " native_length_queries=" << native_queries.length_queries
+        << " native_snapshot_queries=" << native_queries.snapshot_queries;
     if (sink)
         log << " output_coalesced=" << sink->coalesced();
     log << '\n';

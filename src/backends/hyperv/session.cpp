@@ -1,10 +1,9 @@
 #include "backends/hyperv/session.hpp"
 #include "backends/hyperv/channel.hpp"
-#include "platform/windows/process_catalog.hpp"
 namespace cs2::backends::hyperv {
-bool Session::alive() const {
-    const auto identity = platform::windows::query_identity(binding_->process.pid);
-    return identity && *identity == binding_->process;
+memory::ProcessState Session::state() const {
+    return native::observe_process(binding_->layout, binding_->process, binding_->address_space,
+                                    binding_->caller_cr3);
 }
 std::unique_ptr<memory::IReadChannel> Session::open_reader() const {
     return std::make_unique<ReadChannel>(binding_);

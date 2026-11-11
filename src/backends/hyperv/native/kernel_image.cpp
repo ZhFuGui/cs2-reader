@@ -147,4 +147,30 @@ std::uint32_t KernelImage::accessor_offset(std::string_view name) const {
         throw std::runtime_error("Invalid running kernel accessor offset");
     return offset;
 }
+std::uint32_t KernelImage::address_accessor_offset(std::string_view name) const {
+    std::array<std::uint8_t, 8> code{};
+    exact(export_address(name, true), code.data(), code.size());
+    std::uint32_t offset = 0;
+    if (code[0] != 0x48 || code[1] != 0x8D || code[2] != 0x81 || code[7] != 0xC3)
+        throw std::runtime_error("Unrecognized kernel address accessor: " + std::string(name));
+    std::memcpy(&offset, code.data() + 3, 4); // lea rax,[rcx+disp32]; ret
+    if (offset > 0x1000) throw std::runtime_error("Invalid kernel address accessor offset");
+    return offset;
+}
+KernelImage::BitField KernelImage::bit_accessor(std::string_view name) const {
+    std::array<std::uint8_t, 11> code{};
+    const auto address = export_address(name, true);
+    exact(address, code.data(), code.size());
+    // mov eax,[rcx+disp32]; shr eax,imm8; and al,1; ret
+    if (code[0] != 0x8B || code[1] != 0x81 || code[6] != 0xC1 || code[7] != 0xE8 ||
+        code[8] >= 32 || code[9] != 0x24 || code[10] != 0x01)
+        throw std::runtime_error("Unrecognized kernel bit accessor: " + std::string(name));
+    std::uint8_t tail = 0;
+    exact(address + code.size(), &tail, 1);
+    if (tail != 0xC3) throw std::runtime_error("Invalid kernel bit accessor tail");
+    std::uint32_t offset = 0;
+    std::memcpy(&offset, code.data() + 2, 4);
+    if (offset > 0x1000 || (offset & 3)) throw std::runtime_error("Invalid kernel bit accessor offset");
+    return {offset, 1U << code[8]};
+}
 } // namespace cs2::backends::hyperv::native

@@ -14,6 +14,9 @@ class KernelImage {
     [[nodiscard]] bool writable_data(std::uint64_t address) const noexcept;
     [[nodiscard]] std::uint64_t export_address(std::string_view name, bool executable) const;
     [[nodiscard]] std::uint32_t accessor_offset(std::string_view name) const;
+    [[nodiscard]] std::uint32_t address_accessor_offset(std::string_view name) const;
+    struct BitField { std::uint32_t offset, mask; };
+    [[nodiscard]] BitField bit_accessor(std::string_view name) const;
 
   private:
     [[nodiscard]] bool range(std::uint64_t rva, std::uint64_t bytes) const noexcept;
