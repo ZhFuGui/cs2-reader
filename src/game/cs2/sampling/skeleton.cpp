@@ -4,7 +4,6 @@
 #include "game/cs2/skeleton/pose.hpp"
 #include "game/cs2/skeleton/profile.hpp"
 #include "memory/block_reader.hpp"
-#include "memory/read_plan.hpp"
 #include <algorithm>
 
 namespace cs2::game {
@@ -15,33 +14,32 @@ constexpr auto bones_offset = state_offset + layout::model_bone_array;
 constexpr auto model_offset = state_offset + offsets::schema::CModelState::m_hModel;
 constexpr auto name_offset = state_offset + offsets::schema::CModelState::m_ModelName;
 constexpr auto mask_offset = state_offset + offsets::schema::CModelState::m_MeshGroupMask;
-constexpr memory::Field sources[]{
-    memory::field<memory::Address>(owner_offset), memory::field<memory::Address>(bones_offset),
-    memory::field<memory::Address>(model_offset), memory::field<memory::Address>(name_offset)};
+constexpr auto header_bytes = std::max<std::size_t>(model_offset, name_offset) + 8 - bones_offset;
+static_assert(model_offset >= bones_offset && name_offset >= bones_offset && header_bytes <= 128);
 struct Header {
     memory::Address bones, model, name;
     bool operator==(const Header&) const = default;
 };
-std::optional<Header> header(const memory::Fields& fields) {
-    const auto bones = fields.get<memory::Address>(bones_offset), model = fields.get<memory::Address>(model_offset),
-               name = fields.get<memory::Address>(name_offset);
+std::optional<Header> header(const memory::Block& block) {
+    const auto bones = block.get<memory::Address>(0), model = block.get<memory::Address>(model_offset - bones_offset),
+               name = block.get<memory::Address>(name_offset - bones_offset);
     if (!bones || !model || !name)
         return {};
     return Header{*bones, *model, *name};
 }
+using Ticket = memory::ReadPlan::Ticket;
 struct Work {
-    explicit Work(const SkeletonRead& read)
-        : request(read), opening(*read.scene, sources), closing(*read.scene, sources) {}
+    explicit Work(const SkeletonRead& read) : request(read) {}
     const SkeletonRead& request;
-    memory::Fields opening, closing;
-    memory::Block name, positions;
+    memory::Block opening, closing, name, positions;
     std::optional<Header> source;
     const skeleton::Profile* profile = nullptr;
     bool named = false;
-    memory::Address loaded{}, closing_loaded{}, closing_scene{};
+    memory::Address owner{}, closing_owner{}, closing_loaded{}, closing_scene{};
     std::uint64_t mask{}, closing_mask{};
-    std::optional<memory::ReadPlan::Ticket> model_ticket, mask_ticket, closing_model_ticket, closing_mask_ticket;
-    memory::ReadPlan::Ticket scene_ticket{};
+    Ticket owner_ticket{}, name_pointer{}, model_pointer{}, loaded_pointer{}, bone_pointer{}, mask_ticket{};
+    Ticket closing_owner_ticket{}, scene_ticket{};
+    std::optional<Ticket> closing_model_ticket, closing_mask_ticket;
 };
 void project_positions(Work& work) {
     auto& result = work.request.result;
@@ -52,7 +50,6 @@ void project_positions(Work& work) {
         if (!position || !model::finite(*position))
             continue;
         model::BonePoint point{bone.index, *position, bone.role};
-        // 位置与姿态使用同一份骨数组；可选尾部或旋转失败不撤销已成功的位置。
         if (const auto transform = work.positions.get<skeleton::NativeBoneTransform>(bone.index * layout::bone_stride))
             point.world_pose = skeleton::world_pose(*transform);
         result.points.push_back(std::move(point));
@@ -87,25 +84,25 @@ void sample_skeletons(memory::IReadChannel& reader, std::span<const SkeletonRead
         if (request.scene && memory::user_range(*request.scene, extent))
             work.emplace_back(request);
     }
-    std::vector<memory::Fields*> fields;
-    for (auto& item : work)
-        fields.push_back(&item.opening);
-    memory::Fields::read_many(reader, fields);
-    std::vector<memory::Block::Read> blocks;
+    memory::ReadPlan opening;
+    std::vector<memory::Block::PlannedRead> blocks;
     for (auto& item : work) {
-        if (item.opening.get<memory::Address>(owner_offset) != std::optional(item.request.pawn))
-            continue;
-        item.source = header(item.opening);
-        if (item.source && memory::user_range(item.source->model) && memory::user_range(item.source->name))
-            blocks.push_back({item.name, item.source->name, 512});
-        else
-            item.source.reset();
+        const auto scene = *item.request.scene;
+        item.owner_ticket = opening.add(scene + owner_offset, item.owner);
+        blocks.push_back({item.opening, item.opening.schedule(opening, scene + bones_offset, header_bytes)});
+        item.name_pointer = opening.pointer(scene + name_offset);
+        blocks.push_back({item.name, item.name.schedule_from(opening, item.name_pointer, 0, 512)});
     }
-    memory::Block::read_many(reader, blocks);
-    memory::ReadPlan model_reads;
+    opening.execute(reader);
+    memory::Block::finish_many(reader, opening, blocks);
+    memory::ReadPlan data;
     blocks.clear();
     for (auto& item : work) {
-        if (!item.source)
+        if (!opening.complete(item.owner_ticket) || item.owner != item.request.pawn)
+            continue;
+        item.source = header(item.opening);
+        if (!item.source || !memory::user_range(item.source->model) || !memory::user_range(item.source->name) ||
+            opening.pointer_value(item.name_pointer) != std::optional(item.source->name))
             continue;
         const auto name = item.name.text(0, 512);
         if (!name)
@@ -120,51 +117,59 @@ void sample_skeletons(memory::IReadChannel& reader, std::span<const SkeletonRead
             continue; // 未知模型不读取猜测的骨点。
         result.profile_id = std::string(item.profile->id);
         result.status = model::SkeletonStatus::SourceUnavailable;
-        item.model_ticket = model_reads.add(item.source->model, item.loaded);
-        item.mask_ticket = model_reads.add(*item.request.scene + mask_offset, item.mask);
+        // 名称完成后才选择已核验骨架；模型加载对象和骨数组在同一依赖计划中获取。
+        item.model_pointer = data.pointer(*item.request.scene + model_offset);
+        item.loaded_pointer = data.pointer_from(item.model_pointer, 0);
+        item.mask_ticket = data.add(*item.request.scene + mask_offset, item.mask);
         const auto last = std::max_element(item.profile->bones.begin(), item.profile->bones.end(),
                                            [](auto a, auto b) { return a.index < b.index; });
         const auto bytes = (static_cast<std::size_t>(last->index) + 1) * layout::bone_stride;
-        if (memory::user_range(item.source->bones, bytes))
-            blocks.push_back({item.positions, item.source->bones, bytes});
+        item.bone_pointer = data.pointer(*item.request.scene + bones_offset);
+        blocks.push_back({item.positions, item.positions.schedule_from(data, item.bone_pointer, 0, bytes)});
     }
-    model_reads.execute(reader);
-    memory::Block::read_many(reader, blocks);
+    data.execute(reader);
+    memory::Block::finish_many(reader, data, blocks);
     for (auto& item : work)
         if (item.named && item.profile)
             project_positions(item);
 
-    fields.clear();
     memory::ReadPlan closing;
+    blocks.clear();
     for (auto& item : work) {
         if (!item.named)
             continue;
-        fields.push_back(&item.closing);
+        const auto scene = *item.request.scene;
+        blocks.push_back({item.closing, item.closing.schedule(closing, scene + bones_offset, header_bytes)});
+        item.closing_owner_ticket = closing.add(scene + owner_offset, item.closing_owner);
         item.scene_ticket =
             closing.add(item.request.pawn + offsets::schema::C_BaseEntity::m_pGameSceneNode, item.closing_scene);
         if (item.profile) {
             item.closing_model_ticket = closing.add(item.source->model, item.closing_loaded);
-            if (model_reads.complete(*item.model_ticket) && memory::user_range(item.loaded) &&
-                model_reads.complete(*item.mask_ticket))
-                item.closing_mask_ticket = closing.add(*item.request.scene + mask_offset, item.closing_mask);
+            if (const auto loaded = data.pointer_value(item.loaded_pointer);
+                loaded && memory::user_range(*loaded) && data.complete(item.mask_ticket))
+                item.closing_mask_ticket = closing.add(scene + mask_offset, item.closing_mask);
         }
     }
-    memory::Fields::read_many(reader, fields);
     closing.execute(reader);
+    memory::Block::finish_many(reader, closing, blocks);
     for (const auto& item : work) {
         if (!item.named)
             continue;
         auto& result = item.request.result;
-        if (header(item.closing) != item.source ||
-            item.closing.get<memory::Address>(owner_offset) != std::optional(item.request.pawn) ||
-            !closing.complete(item.scene_ticket) || item.closing_scene != *item.request.scene) {
+        const auto model = item.profile ? data.pointer_value(item.model_pointer) : std::nullopt;
+        const auto bones = item.profile ? data.pointer_value(item.bone_pointer) : std::nullopt;
+        if (header(item.closing) != item.source || !closing.complete(item.closing_owner_ticket) ||
+            item.closing_owner != item.request.pawn || !closing.complete(item.scene_ticket) ||
+            item.closing_scene != *item.request.scene || (model && *model != item.source->model) ||
+            (bones && *bones != item.source->bones)) {
             result = {};
             continue;
         }
         if (!item.profile)
             continue;
-        if (!model_reads.complete(*item.model_ticket) || !memory::user_range(item.loaded) ||
-            !closing.complete(*item.closing_model_ticket) || item.closing_loaded != item.loaded) {
+        const auto loaded = data.pointer_value(item.loaded_pointer);
+        if (!loaded || !memory::user_range(*loaded) || !closing.complete(*item.closing_model_ticket) ||
+            item.closing_loaded != *loaded) {
             for (auto& point : result.points)
                 point.world_pose.reset();
         } else if (item.closing_mask_ticket && closing.complete(*item.closing_mask_ticket) &&

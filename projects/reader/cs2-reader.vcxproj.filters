@@ -215,6 +215,21 @@
     <ClInclude Include="$(ReaderRoot)src\memory\read_plan.hpp">
       <Filter>memory</Filter>
     </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\dependent_read.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\memory\dependent_read.cpp">
+      <Filter>memory</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\dependent.hpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\dependent.cpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\dependent_channel.cpp">
+      <Filter>backends\hyperv</Filter>
+    </ClCompile>
     <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\identity_observation.hpp">
       <Filter>game\cs2\entity</Filter>
     </ClInclude>
@@ -338,6 +353,9 @@
       <Filter>game\cs2\sampling</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\player.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\player_services.cpp">
       <Filter>game\cs2\sampling</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\weapon.cpp">
