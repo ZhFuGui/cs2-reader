@@ -25,12 +25,10 @@ struct Work {
     const PlayerSupplementRead& request;
     Link name, money, items, weapons;
     memory::Block text, handles;
+    std::optional<memory::Fields> item_fields, weapon_fields;
     std::int32_t cash{};
-    std::uint8_t helmet{}, defuser{};
-    std::uint32_t active{};
     VectorHeader inventory{}, closing_inventory{};
-    std::optional<Ticket> cash_ticket, helmet_ticket, defuser_ticket, active_ticket, inventory_ticket, inventory_close,
-        handles_pointer;
+    std::optional<Ticket> cash_ticket, inventory_close, handles_pointer;
     bool inventory_valid = false;
 };
 bool schedule_link(memory::ReadPlan& plan, Link& link, const EntitySample& source, std::size_t offset) {
@@ -58,6 +56,7 @@ void sample_player_supplements(memory::IReadChannel& reader, std::span<const Pla
         work.emplace_back(request);
     memory::ReadPlan opening;
     std::vector<memory::Block::PlannedRead> blocks;
+    std::vector<memory::Fields::PlannedRead> fields;
     for (auto& item : work) {
         auto& result = item.request.result;
         result.sanitized_name.reset();
@@ -76,26 +75,33 @@ void sample_player_supplements(memory::IReadChannel& reader, std::span<const Pla
         body.weapon.reset();
         body.equipped_weapons.clear();
         if (schedule_link(opening, item.items, *item.request.body, pawn::m_pItemServices)) {
-            item.helmet_ticket = opening.add_from(item.items.pointer,
-                                                  offsets::schema::CCSPlayer_ItemServices::m_bHasHelmet, item.helmet);
-            item.defuser_ticket = opening.add_from(
-                item.items.pointer, offsets::schema::CCSPlayer_ItemServices::m_bHasDefuser, item.defuser);
+            using namespace offsets::schema::CCSPlayer_ItemServices;
+            const memory::Field layout[]{memory::field<std::uint8_t>(m_bHasHelmet),
+                                         memory::field<std::uint8_t>(m_bHasDefuser)};
+            item.item_fields.emplace(*item.items.expected, layout);
+            fields.push_back(item.item_fields->schedule(opening, item.items.pointer));
         }
         if (schedule_link(opening, item.weapons, *item.request.body, pawn::m_pWeaponServices)) {
-            item.active_ticket = opening.add_from(item.weapons.pointer, weapon::m_hActiveWeapon, item.active);
-            item.inventory_ticket = opening.add_from(item.weapons.pointer, weapon::m_hMyWeapons, item.inventory);
+            const memory::Field layout[]{memory::field<VectorHeader>(weapon::m_hMyWeapons),
+                                         memory::field<std::uint32_t>(weapon::m_hActiveWeapon)};
+            item.weapon_fields.emplace(*item.weapons.expected, layout);
+            fields.push_back(item.weapon_fields->schedule(opening, item.weapons.pointer));
         }
     }
     opening.execute(reader);
     memory::Block::finish_many(reader, opening, blocks);
+    memory::Fields::finish_many(reader, opening, fields);
 
     // 数量必须由本轮服务头得出；第二个计划完整复制成员，不预读固定上限的列表。
     memory::ReadPlan members;
     blocks.clear();
     for (auto& item : work) {
-        if (!item.inventory_ticket || !opening.complete(*item.inventory_ticket) ||
-            opening.pointer_value(item.weapons.pointer) != item.weapons.expected)
+        if (!item.weapon_fields || opening.pointer_value(item.weapons.pointer) != item.weapons.expected)
             continue;
+        const auto header = item.weapon_fields->get<VectorHeader>(weapon::m_hMyWeapons);
+        if (!header)
+            continue;
+        item.inventory = *header;
         const auto& vector = item.inventory;
         if (vector.count < 0 || static_cast<std::uint32_t>(vector.count) > layout::entity_index_mask + 1 ||
             (vector.count && !memory::user_range(vector.data, std::size_t(vector.count) * sizeof(std::uint32_t))))
@@ -134,15 +140,14 @@ void sample_player_supplements(memory::IReadChannel& reader, std::span<const Pla
             continue;
         auto& body = *result.body;
         if (valid_link(opening, closing, item.items)) {
-            if (opening.complete(*item.helmet_ticket) && item.helmet <= 1)
-                body.helmet = item.helmet != 0;
-            if (opening.complete(*item.defuser_ticket) && item.defuser <= 1)
-                body.defuser = item.defuser != 0;
+            body.helmet = boolean(*item.item_fields, offsets::schema::CCSPlayer_ItemServices::m_bHasHelmet);
+            body.defuser = boolean(*item.item_fields, offsets::schema::CCSPlayer_ItemServices::m_bHasDefuser);
         }
         if (!valid_link(opening, closing, item.weapons))
             continue;
-        if (opening.complete(*item.active_ticket) && item.active != UINT32_MAX)
-            body.active_weapon = model::EntityId{item.active};
+        if (const auto active = item.weapon_fields->get<std::uint32_t>(weapon::m_hActiveWeapon);
+            active && *active != UINT32_MAX)
+            body.active_weapon = model::EntityId{*active};
         if (!item.inventory_valid || !closing.complete(*item.inventory_close) ||
             item.closing_inventory.count != item.inventory.count ||
             item.closing_inventory.data != item.inventory.data ||
