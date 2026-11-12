@@ -1,21 +1,25 @@
 #pragma once
+#include "game/cs2/offsets/catalog.hpp"
 #include <cstddef>
 #include <cstdint>
 namespace cs2::game::eye_profile {
-inline constexpr std::uint32_t build = 14196;
-inline constexpr std::size_t getter = 0xc76d40, input_getter = 0x953310, camera_view_getter = 0x8556f0;
-inline constexpr std::size_t context = 0x21c40a0, lane_mode = 0x21c40a4, time = 0x21c40a8;
-inline constexpr std::size_t gate_a = 0x2542c04, gate_b = 0x25655e0, gate_c_data = 0x2567370, gate_slot = 0x2205030;
+inline constexpr std::uint32_t build = 14197;
+inline constexpr std::size_t getter = 0xc6b050, input_getter = 0x94cf50, camera_view_getter = 0x84f6d0;
+inline constexpr std::size_t context = 0x21b1090, lane_mode = 0x21b1094, time = 0x21b1098;
+inline constexpr std::size_t gate_a = 0x252b2e0, gate_b = 0x254f518, gate_c_data = 0x2550760, gate_slot = 0x21f1f10;
 inline constexpr std::size_t prediction_flag = 0x14c5;
-inline constexpr std::size_t interpolation = 0x3610, cache_value = 0x3618, cache_time = 0x3630;
-inline constexpr std::size_t flags = 0x3648, dirty = 0x3649, active = 0x3670;
-inline constexpr std::size_t prediction_getter = 0x93ddc0;
-inline constexpr std::size_t world_rotation_getter = 0x15fbc0;
-inline constexpr std::size_t history = 0x3638, history_vtable = 0x1c3fa38;
-inline constexpr std::size_t history_fallback = 0xa73c20, history_type = 0xa699c0;
-inline constexpr std::size_t history_delay = 0xa69d80, history_after_fallback = 0xa69d70;
-inline constexpr std::size_t no_history_delay = 0x21c40b0, three_sample_enabled = 0x225de40;
-inline constexpr std::size_t extrapolation_enabled = 0x2374c00, extrapolation_min_tick = 0x2374c04;
-inline constexpr std::size_t extrapolation_limit = 0x225de44, native_entity_table = 0x2374bf0;
+// m_angEyeAngles 是带插值状态的原生存储；其整体位置随 schema 更新，内部布局经本版本 getter 核验。
+inline constexpr std::size_t angle_storage = offsets::schema::C_CSPlayerPawn::m_angEyeAngles;
+inline constexpr std::size_t interpolation = angle_storage + 0x10, cache_value = angle_storage + 0x18;
+inline constexpr std::size_t cache_time = angle_storage + 0x30;
+inline constexpr std::size_t flags = angle_storage + 0x48, dirty = angle_storage + 0x49, active = angle_storage + 0x70;
+inline constexpr std::size_t prediction_getter = 0x937c30;
+inline constexpr std::size_t world_rotation_getter = 0x15fdb0;
+inline constexpr std::size_t history = angle_storage + 0x38, history_vtable = 0x1c331a8;
+inline constexpr std::size_t history_fallback = 0xa6cc20, history_type = 0xa629c0;
+inline constexpr std::size_t history_delay = 0xa62d80, history_after_fallback = 0xa62d70;
+inline constexpr std::size_t no_history_delay = 0x21b10a0, three_sample_enabled = 0x224a108;
+inline constexpr std::size_t extrapolation_enabled = 0x235db80, extrapolation_min_tick = 0x235db84;
+inline constexpr std::size_t extrapolation_limit = 0x224a10c, native_entity_table = 0x235db70;
 inline constexpr std::size_t scene_transform_dirty = 0x110;
 } // namespace cs2::game::eye_profile
