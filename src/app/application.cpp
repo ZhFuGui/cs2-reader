@@ -1,15 +1,17 @@
 #include "app/application.hpp"
 #include "app/composition.hpp"
 #include "capture/collector.hpp"
-#include "diagnostics/snapshot_sink.hpp"
 #include "diagnostics/obf.hpp"
+#include "diagnostics/snapshot_sink.hpp"
 #include "game/cs2/offsets/catalog.hpp"
+#include "memory/read_error.hpp"
 #include "platform/windows/process_catalog.hpp"
 #include "platform/windows/qpc_clock.hpp"
 #include "synchronization/v1/service.hpp"
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <system_error>
 #include <thread>
 
 namespace cs2::app {
@@ -93,13 +95,43 @@ int run(const Options& options, std::ostream& log, bool console_controls) {
     std::unique_ptr<memory::ISession> session;
     std::optional<memory::ProcessIdentity> process;
     bool discard_session = false;
+    const auto observe_session = [&] {
+        try {
+            return session->state();
+        } catch (const memory::ReadUnavailable&) {
+            return memory::ProcessState::Unreadable;
+        }
+    };
+    const auto retry = [&](const char* reason, const char* message, std::optional<std::uint64_t> source_epoch = {}) {
+        if (service)
+            service->unavailable(Availability::Unavailable, reason, source_epoch);
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= next_status) {
+            log << reason << ": " << message << '\n';
+            next_status = now + std::chrono::seconds(3);
+        }
+        pause_until(now + std::chrono::milliseconds(500));
+    };
+    const auto discard_if_gone = [&] {
+        const auto state = observe_session();
+        if (state == memory::ProcessState::Exited || state == memory::ProcessState::Changed) {
+            session.reset();
+            platform::windows::invalidate_process_catalog();
+        }
+        return state;
+    };
     while (running()) {
         if (discard_session) {
             session.reset(); // 上一轮 Collector 已经析构，再释放其引用的会话。
             discard_session = false;
         }
         if (!session) {
-            process = target(options); // 同一快照可供选择、内核自证和绑定复用。
+            try {
+                process = target(options); // 同一快照可供选择、内核自证和绑定复用。
+            } catch (const memory::ReadUnavailable& error) {
+                retry("PROCESS_DISCOVERY_UNAVAILABLE", error.what());
+                continue;
+            }
             if (!process) {
                 try {
                     // 未发现游戏时只轮询 hypervisor；出现候选才触发一次原生快照。
@@ -108,11 +140,9 @@ int run(const Options& options, std::ostream& log, bool console_controls) {
                         platform::windows::invalidate_process_catalog();
                         process = target(options);
                     }
-                } catch (const std::exception& error) {
-                    if (std::chrono::steady_clock::now() >= next_status) {
-                        log << "Process discovery unavailable: " << error.what() << '\n';
-                        next_status = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-                    }
+                } catch (const std::runtime_error& error) {
+                    retry("PROCESS_DISCOVERY_UNAVAILABLE", error.what());
+                    continue;
                 }
             }
         }
@@ -135,42 +165,55 @@ int run(const Options& options, std::ostream& log, bool console_controls) {
         if (!session) {
             try {
                 session = backend->attach(*process, options.access);
-            } catch (const std::exception& error) {
-                if (service) service->unavailable(Availability::Unavailable, "PROCESS_BINDING_UNAVAILABLE");
+            } catch (const std::runtime_error& error) {
                 // 仅当内核线索确认身份已变，才令原生快照失效；绑定故障不反复枚举。
                 try {
                     const auto hint = backend->find_process_hint(OBF("cs2.exe").c_str());
-                    if (!hint || *hint != *process) platform::windows::invalidate_process_catalog();
-                } catch (const std::exception&) {}
-                if (std::chrono::steady_clock::now() >= next_status) {
-                    log << "Process binding unavailable: " << error.what() << '\n';
-                    next_status = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+                    if (!hint || *hint != *process)
+                        platform::windows::invalidate_process_catalog();
+                } catch (const std::runtime_error&) {
                 }
-                pause_until(std::chrono::steady_clock::now() + std::chrono::milliseconds(500));
+                retry("PROCESS_BINDING_UNAVAILABLE", error.what());
                 continue;
             }
         }
-        auto bootstrap = session->open_reader();
         game::Context context;
+        std::unique_ptr<capture::Collector> collector;
         try {
+            auto bootstrap = session->open_reader();
+            if (!bootstrap)
+                throw std::logic_error("Backend did not provide a bootstrap reader");
             context = game::open_context(*bootstrap, *session);
-        } catch (const game::ContextPending& error) {
-            if (service)
-                service->unavailable(Availability::Unavailable, "GAME_CONTEXT_PENDING");
-            const auto now = std::chrono::steady_clock::now();
-            if (now >= next_status) {
-                log << error.what() << '\n';
-                next_status = now + std::chrono::seconds(3);
+            collector = std::make_unique<capture::Collector>(*session, context, clock, options.workers, options.bones);
+        } catch (const memory::ReadUnavailable& error) {
+            const auto state = discard_if_gone(); // 读不到身份时保留绑定，不反复刷新原生进程快照。
+            if (options.pid && running() &&
+                (state == memory::ProcessState::Exited || state == memory::ProcessState::Changed)) {
+                log << "The selected process instance has exited or changed.\n";
+                return 3;
             }
-            if (session->state() != memory::ProcessState::Current) {
-                session.reset();
-                platform::windows::invalidate_process_catalog();
+            retry("GAME_CONTEXT_PENDING", error.what());
+            continue;
+        } catch (const std::system_error& error) {
+            if (error.code() != std::errc::resource_unavailable_try_again &&
+                error.code() != std::errc::not_enough_memory)
+                throw;
+            retry("CAPTURE_WORKERS_UNAVAILABLE", error.what());
+            continue;
+        } catch (const std::runtime_error& error) {
+            // 版本/布局不匹配只在来源身份仍可确认时停止；退出或不可读期间重新观察。
+            const auto state = discard_if_gone();
+            if (state == memory::ProcessState::Current)
+                throw;
+            if (options.pid && running() &&
+                (state == memory::ProcessState::Exited || state == memory::ProcessState::Changed)) {
+                log << "The selected process instance has exited or changed.\n";
+                return 3;
             }
-            pause_until(now + std::chrono::milliseconds(500));
+            retry("GAME_CONTEXT_PENDING", error.what());
             continue;
         }
         ++epoch;
-        capture::Collector collector(*session, context, clock, options.workers, options.bones);
         const auto native_queries = platform::windows::process_catalog_stats();
         log << "Attached PID " << process->pid << ", build " << context.build << ", epoch " << epoch
             << " native_length_queries=" << native_queries.length_queries
@@ -190,18 +233,25 @@ int run(const Options& options, std::ostream& log, bool console_controls) {
                 period = std::chrono::nanoseconds(static_cast<std::int64_t>(1e9 / rate.hz));
                 next = now; // 调频重新开始时间线，不补采旧周期。
             }
-            if (now - last_alive >= std::chrono::seconds(1)) {
-                invalid_state = session->state();
+            if (invalid_state == memory::ProcessState::Unreadable || now - last_alive >= std::chrono::seconds(1)) {
+                invalid_state = observe_session();
+                if (invalid_state == memory::ProcessState::Unreadable) {
+                    retry("PROCESS_BINDING_UNAVAILABLE", "Bound process identity is temporarily unreadable", epoch);
+                    continue;
+                }
                 if (invalid_state != memory::ProcessState::Current) {
                     if (service)
                         service->unavailable(Availability::Unavailable,
-                            invalid_state == memory::ProcessState::Exited ? "PROCESS_EXITED" : "PROCESS_BINDING_UNAVAILABLE", epoch);
+                                             invalid_state == memory::ProcessState::Exited
+                                                 ? "PROCESS_EXITED"
+                                                 : "PROCESS_BINDING_UNAVAILABLE",
+                                             epoch);
                     break;
                 }
                 last_alive = now;
             }
             try {
-                auto snapshot = collector.capture(sequence + 1, epoch);
+                auto snapshot = collector->capture(sequence + 1, epoch);
                 snapshot.capture_target_hz = rate.hz;
                 ++sequence;
                 if (now >= next_status || options.samples == 1) {
@@ -252,8 +302,8 @@ int run(const Options& options, std::ostream& log, bool console_controls) {
                     if (const auto error = sink->error(); !error.empty())
                         log << error << '\n';
                 }
-            } catch (const std::exception& error) {
-                collector.invalidate_map();
+            } catch (const memory::ReadUnavailable& error) {
+                collector->invalidate_map();
                 if (service)
                     service->unavailable(Availability::Unavailable, "CAPTURE_UNAVAILABLE", epoch);
                 ++failures;
@@ -261,8 +311,9 @@ int run(const Options& options, std::ostream& log, bool console_controls) {
                     log << "Capture unavailable: " << error.what() << '\n';
                     next_status = std::chrono::steady_clock::now() + std::chrono::seconds(1);
                 }
-                invalid_state = session->state();
-                if (invalid_state != memory::ProcessState::Current) break;
+                invalid_state = observe_session();
+                if (invalid_state == memory::ProcessState::Exited || invalid_state == memory::ProcessState::Changed)
+                    break;
             }
             next += period;
             const auto finished = std::chrono::steady_clock::now();

@@ -1,4 +1,5 @@
 #pragma once
+#include "memory/read_error.hpp"
 #include "memory/session.hpp"
 #include "platform/windows/native_api.hpp"
 #include "platform/windows/process_name.hpp"
@@ -70,7 +71,10 @@ class ProcessCatalog {
             if (image.find(L'\0') != image.npos)
                 throw std::runtime_error("Embedded null in process name");
             if (hash_process_name(image) == name) {
-                if (found) throw std::runtime_error("Multiple matching process instances; use --pid explicitly");
+                if (found) {
+                    valid_ = false; // 重叠启动可能只是暂态，下一次重新确认，而不是永久复用歧义快照。
+                    throw memory::ReadUnavailable("Multiple matching process instances; use --pid explicitly");
+                }
                 found = memory::ProcessIdentity{static_cast<std::uint32_t>(pid),
                                                 static_cast<std::uint64_t>(entry.created.QuadPart)};
             } else if (selected)
@@ -94,7 +98,7 @@ class ProcessCatalog {
             ++stats_.length_queries;
             const auto status = ::NtQuerySystemInformation(static_cast<SYSTEM_INFORMATION_CLASS>(5), nullptr, 0, &required);
             if (status != status_length_mismatch && status != status_buffer_too_small && !nt_success(status))
-                throw std::runtime_error("Native process length query failed");
+                throw memory::ReadUnavailable("Native process length query failed");
             grow(required);
         }
         for (unsigned attempt = 0; attempt < 8; ++attempt) {
@@ -106,7 +110,7 @@ class ProcessCatalog {
                 grow(std::max<std::size_t>(returned, buffer_.size() + buffer_.size() / 2));
                 continue;
             }
-            if (!nt_success(status)) throw std::runtime_error("Native process snapshot query failed");
+            if (!nt_success(status)) throw memory::ReadUnavailable("Native process snapshot query failed");
             if (returned < sizeof(SystemProcessPrefix) || returned > buffer_.size())
                 throw std::runtime_error("Invalid native process list length");
             used_ = returned;
@@ -114,7 +118,7 @@ class ProcessCatalog {
             valid_ = true;
             return;
         }
-        throw std::runtime_error("Native process list changed beyond retry budget");
+        throw memory::ReadUnavailable("Native process list changed beyond retry budget");
     }
     template<class Visitor> void visit(Visitor&& visitor) const {
         for (std::size_t offset = 0;;) {

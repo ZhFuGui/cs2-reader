@@ -3,6 +3,7 @@
 #include "game/cs2/entity/layout.hpp"
 #include "game/cs2/offsets/catalog.hpp"
 #include "memory/block_reader.hpp"
+#include "memory/read_error.hpp"
 #include <algorithm>
 #include <array>
 #include <stdexcept>
@@ -35,14 +36,14 @@ void Directory::discover(memory::IReadChannel& channel, const Context& context) 
     const auto observed =
         memory::read_value<memory::Address>(channel, context.client.base + offsets::client::dwEntityList);
     if (!observed || !memory::user_range(*observed))
-        throw std::runtime_error("Entity directory is not available");
+        throw memory::ReadUnavailable("Entity directory is not available");
     root = *observed;
     const auto highest =
         memory::read_value<std::int32_t>(channel, root + offsets::client::dwGameEntitySystem_highestEntityIndex);
     if (!highest)
-        throw std::runtime_error("Cannot read highest entity index");
+        throw memory::ReadUnavailable("Cannot read highest entity index");
     if (*highest < -1 || *highest > static_cast<std::int32_t>(layout::entity_index_mask))
-        throw std::runtime_error("Entity index exceeds the handle layout; refusing to truncate the list");
+        throw memory::ReadUnavailable("Entity index exceeds the handle layout; refusing to truncate the list");
     reported_highest_index = *highest;
     allocated_chunks = 0;
     constexpr auto max_chunks = (layout::entity_index_mask + 1) / layout::identities_per_chunk;
@@ -52,7 +53,7 @@ void Directory::discover(memory::IReadChannel& channel, const Context& context) 
     for (std::size_t chunk = 0; chunk < max_chunks; ++chunk) {
         const auto pointer = table.get<memory::Address>(chunk * sizeof(memory::Address));
         if (!pointer)
-            throw std::runtime_error("Cannot completely observe the entity chunk table");
+            throw memory::ReadUnavailable("Cannot completely observe the entity chunk table");
         if (*pointer) {
             ++allocated_chunks;
             size = std::max(size, (chunk + 1) * layout::identities_per_chunk);
@@ -107,7 +108,7 @@ void Directory::discover(memory::IReadChannel& channel, const Context& context) 
         }
     }
     if (!verify_root(channel, context))
-        throw std::runtime_error("Entity directory changed while copying its slots");
+        throw memory::ReadUnavailable("Entity directory changed while copying its slots");
 }
 void Directory::classify(memory::IReadChannel& channel, std::size_t index) {
     classify_many(channel, std::span(&index, 1));
@@ -286,7 +287,7 @@ model::Coverage Directory::coverage() const {
             ++result.classified;
             break;
         default:
-            throw std::runtime_error("Entity directory has unfinished classification tasks");
+            throw std::logic_error("Entity directory has unfinished classification tasks");
         }
     return result;
 }

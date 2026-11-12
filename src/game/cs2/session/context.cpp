@@ -32,11 +32,17 @@ Context open_context(memory::IReadChannel& channel, const memory::ISession& sess
         context.engine.size <= offsets::engine::dwBuildNumber + sizeof(std::uint32_t))
         throw std::runtime_error("Offset profile does not fit the target modules");
     const auto build = memory::read_value<std::uint32_t>(channel, context.engine.base + offsets::engine::dwBuildNumber);
-    if (!build)
-        throw std::runtime_error("Cannot read target game build");
-    if (*build != offsets::expected_build())
+    if (!build || !*build)
+        throw ContextPending("Target game build is unreadable or not initialized");
+    if (*build != offsets::expected_build()) {
+        // 只在不匹配路径再确认一次，避免把初始化/卸载中的变化当成已确认的新版本。
+        const auto confirmed =
+            memory::read_value<std::uint32_t>(channel, context.engine.base + offsets::engine::dwBuildNumber);
+        if (confirmed != build)
+            throw ContextPending("Target game build changed during verification");
         throw std::runtime_error("Offset build probe mismatch: observed=" + std::to_string(*build) + " expected=" +
                                  std::to_string(offsets::expected_build()) + "; update output before sampling");
+    }
     context.build = *build;
     return context;
 }

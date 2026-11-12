@@ -3,6 +3,7 @@
 #include "game/cs2/sampling/batch.hpp"
 #include "game/cs2/sampling/local.hpp"
 #include "game/cs2/sampling/world.hpp"
+#include "memory/read_error.hpp"
 #include <algorithm>
 #include <stdexcept>
 #include <variant>
@@ -79,7 +80,7 @@ model::Snapshot Collector::capture(std::uint64_t sequence, std::uint64_t epoch) 
     result.local = game::sample_local(reader_, context_, directory);
     result.world = game::sample_world(reader_, context_);
     if (!directory.verify_root(reader_, context_))
-        throw std::runtime_error("Entity directory invalidated before capture submission");
+        throw memory::ReadUnavailable("Entity directory invalidated before capture submission");
     result.directory_verified = true;
     result.world.map_identity = map_.finish(reader_, context_, map_opening);
     result.interval.read_finished_qpc = clock_.now();

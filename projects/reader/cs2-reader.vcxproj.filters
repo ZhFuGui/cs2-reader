@@ -461,5 +461,6 @@
   <ItemGroup>
     <ClCompile Include="$(ReaderRoot)src\game\cs2\accuracy\rules.cpp"><Filter>src\game\cs2\accuracy</Filter></ClCompile>
     <ClInclude Include="$(ReaderRoot)src\game\cs2\accuracy\rules.hpp"><Filter>src\game\cs2\accuracy</Filter></ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\read_error.hpp"><Filter>memory</Filter></ClInclude>
   </ItemGroup>
 </Project>
