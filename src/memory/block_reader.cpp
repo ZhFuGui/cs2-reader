@@ -1,28 +1,54 @@
 #include "memory/block_reader.hpp"
+#include "memory/read_plan.hpp"
 #include <limits>
 #include <stdexcept>
 
 namespace cs2::memory {
 void Block::read(IReadChannel& channel, Address address, std::size_t bytes) {
-    data_.resize(bytes);
-    valid_.assign(bytes, 0);
-    if (!bytes || !user_range(address, bytes))
-        return;
-    if (channel.read(address, data_.data(), bytes).complete(bytes)) {
-        std::fill(valid_.begin(), valid_.end(), static_cast<unsigned char>(1));
-        return;
+    const Read request{*this, address, bytes};
+    read_many(channel, std::span(&request, 1));
+}
+void Block::read_many(IReadChannel& channel, std::span<const Read> blocks) {
+    struct Item {
+        const Read* source;
+        ReadPlan::Ticket ticket;
+    };
+    ReadPlan opening(blocks.size());
+    std::vector<Item> items;
+    for (const auto& request : blocks) {
+        auto& block = request.block;
+        block.data_.resize(request.bytes);
+        block.valid_.assign(request.bytes, 0);
+        if (request.bytes && user_range(request.address, request.bytes))
+            items.push_back({&request, opening.add(request.address, block.data_.data(), request.bytes)});
     }
-    std::vector<ReadRequest> pages;
-    for (std::size_t offset = 0; offset < bytes;) {
-        const auto count = std::min(bytes - offset, std::size_t(4096 - ((address + offset) & 4095)));
-        pages.push_back({address + offset, data_.data() + offset, count});
-        offset += count;
+    opening.execute(channel);
+    struct Page {
+        Block* block;
+        std::size_t offset, bytes;
+        ReadPlan::Ticket ticket;
+    };
+    ReadPlan fallback;
+    std::vector<Page> pages;
+    for (const auto& item : items) {
+        const auto& request = *item.source;
+        auto& block = request.block;
+        if (opening.complete(item.ticket)) {
+            std::fill(block.valid_.begin(), block.valid_.end(), static_cast<unsigned char>(1));
+            continue;
+        }
+        for (std::size_t offset = 0; offset < request.bytes;) {
+            const auto count =
+                std::min(request.bytes - offset, std::size_t(4096 - ((request.address + offset) & 4095)));
+            pages.push_back(
+                {&block, offset, count, fallback.add(request.address + offset, block.data_.data() + offset, count)});
+            offset += count;
+        }
     }
-    channel.read_many(pages);
+    fallback.execute(channel);
     for (const auto& page : pages)
-        if (page.result.complete(page.bytes))
-            std::fill_n(valid_.begin() + static_cast<std::size_t>(page.address - address), page.bytes,
-                        static_cast<unsigned char>(1));
+        if (fallback.complete(page.ticket))
+            std::fill_n(page.block->valid_.begin() + page.offset, page.bytes, static_cast<unsigned char>(1));
 }
 bool Block::valid(std::size_t offset, std::size_t bytes) const noexcept {
     return offset <= valid_.size() && bytes <= valid_.size() - offset &&
@@ -54,8 +80,12 @@ bool merge_fields(Address object, std::size_t begin, std::size_t end, const Fiel
     return adjacent || (same_page_merge && same_page);
 }
 } // namespace
-Fields::Fields(IReadChannel& channel, Address object, std::span<const Field> fields,
-               std::span<const Field> additional) {
+Fields::Fields(IReadChannel& channel, Address object, std::span<const Field> fields, std::span<const Field> additional)
+    : Fields(object, fields, additional) {
+    Fields* self = this;
+    read_many(channel, std::span(&self, 1));
+}
+Fields::Fields(Address object, std::span<const Field> fields, std::span<const Field> additional) : object_(object) {
     if (fields.size() > values_.max_size() || additional.size() > values_.max_size() - fields.size())
         throw std::length_error("Field count overflow");
     values_.reserve(fields.size() + additional.size());
@@ -70,10 +100,6 @@ Fields::Fields(IReadChannel& channel, Address object, std::span<const Field> fie
     append(fields);
     append(additional);
     std::sort(values_.begin(), values_.end(), [](const auto& a, const auto& b) { return a.offset < b.offset; });
-    struct Cluster {
-        std::size_t first, last, begin, offset, size;
-    };
-    std::vector<Cluster> clusters;
     std::size_t total = 0;
     for (std::size_t first = 0; first < values_.size();) {
         auto end = values_[first].offset + values_[first].size;
@@ -86,51 +112,75 @@ Fields::Fields(IReadChannel& channel, Address object, std::span<const Field> fie
         const auto bytes = end - values_[first].offset;
         if (bytes > std::numeric_limits<std::size_t>::max() - total)
             throw std::length_error("Field cluster buffer overflow");
-        clusters.push_back({first, last, values_[first].offset, total, bytes});
+        clusters_.push_back({first, last, values_[first].offset, total, bytes});
         for (auto i = first; i < last; ++i)
             values_[i].storage = total + values_[i].offset - values_[first].offset;
         total += bytes;
         first = last;
     }
     data_.resize(total);
-    std::vector<ReadRequest> requests;
-    requests.reserve(clusters.size());
-    for (const auto& cluster : clusters)
-        requests.push_back({object + cluster.begin, data_.data() + cluster.offset, cluster.size});
-    channel.read_many(requests);
-    std::vector<std::size_t> fallback_indices;
-    auto fallback_end = total;
-    for (std::size_t cluster_index = 0; cluster_index < clusters.size(); ++cluster_index) {
-        const auto& cluster = clusters[cluster_index];
-        const bool complete = requests[cluster_index].result.complete(cluster.size);
-        for (auto i = cluster.first; i < cluster.last; ++i) {
-            auto& value = values_[i];
-            if (complete) {
-                value.valid = true;
-            } else if (cluster.last - cluster.first > 1 &&
-                       requests[cluster_index].result.status != TransferStatus::BackendFailure) {
-                if (value.size > std::numeric_limits<std::size_t>::max() - fallback_end)
-                    throw std::length_error("Field fallback buffer overflow");
-                // 失败回退使用不重叠的独立区域，包含重叠或重复字段时也满足批量 ABI。
-                value.storage = fallback_end;
-                fallback_end += value.size;
-                fallback_indices.push_back(i);
+}
+void Fields::read_many(IReadChannel& channel, std::span<Fields* const> objects) {
+    ReadPlan opening;
+    std::vector<ReadPlan::Ticket> tickets;
+    for (auto* fields : objects) {
+        if (!fields->clusters_.empty()) {
+            const auto& last = fields->clusters_.back();
+            fields->data_.resize(last.offset + last.size);
+        }
+        for (auto& value : fields->values_)
+            value.valid = false;
+        for (const auto& cluster : fields->clusters_) {
+            for (auto i = cluster.first; i < cluster.last; ++i)
+                fields->values_[i].storage = cluster.offset + fields->values_[i].offset - cluster.begin;
+            tickets.push_back(
+                opening.add(fields->object_ + cluster.begin, fields->data_.data() + cluster.offset, cluster.size));
+        }
+    }
+    opening.execute(channel);
+    struct Retry {
+        Fields* fields;
+        std::size_t index;
+        ReadPlan::Ticket ticket;
+    };
+    ReadPlan fallback;
+    std::vector<Retry> retries;
+    std::size_t cursor = 0;
+    for (auto* fields : objects) {
+        std::vector<std::size_t> indices;
+        auto fallback_end = fields->data_.size();
+        for (const auto& cluster : fields->clusters_) {
+            const auto ticket = tickets[cursor++];
+            const bool complete = opening.complete(ticket);
+            for (auto i = cluster.first; i < cluster.last; ++i) {
+                auto& value = fields->values_[i];
+                if (complete) {
+                    value.valid = true;
+                } else if (cluster.last - cluster.first > 1 &&
+                           opening.result(ticket).status != TransferStatus::BackendFailure) {
+                    if (value.size > std::numeric_limits<std::size_t>::max() - fallback_end)
+                        throw std::length_error("Field fallback buffer overflow");
+                    // 失败回退使用不重叠的独立区域，包含重叠或重复字段时也满足批量 ABI。
+                    value.storage = fallback_end;
+                    fallback_end += value.size;
+                    indices.push_back(i);
+                }
+            }
+        }
+        if (!indices.empty()) {
+            // 仅失败路径扩展缓冲；首次请求已经返回，随后重建全部目标指针。
+            fields->data_.resize(fallback_end);
+            for (auto i : indices) {
+                const auto& value = fields->values_[i];
+                retries.push_back(
+                    {fields, i,
+                     fallback.add(fields->object_ + value.offset, fields->data_.data() + value.storage, value.size)});
             }
         }
     }
-    if (!fallback_indices.empty()) {
-        // 仅失败路径扩展缓冲；首次请求已经返回，随后重建全部目标指针。
-        data_.resize(fallback_end);
-        requests.clear();
-        requests.reserve(fallback_indices.size());
-        for (auto i : fallback_indices) {
-            const auto& value = values_[i];
-            requests.push_back({object + value.offset, data_.data() + value.storage, value.size});
-        }
-        channel.read_many(requests);
-        for (std::size_t i = 0; i < requests.size(); ++i)
-            values_[fallback_indices[i]].valid = requests[i].result.complete(requests[i].bytes);
-    }
+    fallback.execute(channel);
+    for (const auto& retry : retries)
+        retry.fields->values_[retry.index].valid = fallback.complete(retry.ticket);
 }
 std::optional<std::string> Fields::text(std::size_t offset) const {
     for (const auto& value : values_) {
