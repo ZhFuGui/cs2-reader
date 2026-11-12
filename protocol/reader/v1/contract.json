@@ -234,7 +234,7 @@
     "weapon_field": 15,
     "hello_capability_field": 14,
     "model_id": "cs2.weapon_accuracy.14193.v1",
-    "native_client_sha256": "9279421852772522121be2f13409dd37436e8c809ff48898c8c3d41b09e77844",
+    "native_client_sha256": "99a6720b29d8b477d55f0a2d7fd4333b5df13f354ba723804e996bead1231aa8",
     "units": "无量纲方向幅度，不是角度、命中率或鼠标量",
     "results": "inaccuracy与spread独立status/value；仅VALID有有限值，零有效，失败缺失；新组失败不撤销旧武器或整帧",
     "time": "组内QPC区间包含两个独立标量读取及核验；继承外层实例/进程epoch/capture_sequence/时钟；accuracy_state_time_seconds仅penalty原生游戏秒",
@@ -243,7 +243,7 @@
     "state_update_boundary": "使用游戏已更新penalty/turning，不重复累计姿态/开火/换弹或按Reader帧率额外恢复",
     "control_scope": "仅观察数据；未改变Aim/RCS/Trigger/Rage或控制字段",
     "compatibility": "新descriptor需Reader和消费者成对升级；不在旧tag10更改penalty语义",
-    "current_profile_build": 14196,
-    "model_id_scope": "保留首次核验14193的同一算法标识；14196重新核验同一公式及574例原生夹具；不据此猜测当前游戏版本"
+    "current_profile_build": 14197,
+    "model_id_scope": "保留首次核验14193的同一算法标识；14197按新schema布局重新核验同一公式及574例原生夹具；不据此猜测当前游戏版本"
   }
 }
