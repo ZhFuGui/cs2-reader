@@ -355,6 +355,9 @@
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\player.cpp">
       <Filter>game\cs2\sampling</Filter>
     </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\player_services.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\weapon.cpp">
       <Filter>game\cs2\sampling</Filter>
     </ClCompile>

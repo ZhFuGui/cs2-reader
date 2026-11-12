@@ -154,6 +154,7 @@
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\local.cpp" />
     <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\local.hpp" />
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\player.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\player_services.cpp" />
     <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\player.hpp" />
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\weapon.cpp" />
     <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\weapon.hpp" />

@@ -108,6 +108,13 @@ void sample_entities(memory::IReadChannel& reader, const Context& context, const
             break;
         }
     }
+    std::vector<PlayerSupplementRead> supplements;
+    for (std::size_t i = 0; i < roots.size(); ++i)
+        if (roots[i])
+            if (auto* player = std::get_if<model::Player>(&values[i]))
+                supplements.push_back(
+                    {roots[i]->sample(), bodies[i] ? std::optional(bodies[i]->sample()) : std::nullopt, *player});
+    sample_player_supplements(reader, supplements);
     if (bones) {
         std::vector<SkeletonRead> skeletons;
         for (std::size_t i = 0; i < bodies.size(); ++i)

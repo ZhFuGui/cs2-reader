@@ -58,52 +58,6 @@ model::PlayerBody sample_body(memory::IReadChannel& reader, const Context& conte
     result.spotted = boolean(fields, pawn::m_entitySpottedState + offsets::schema::EntitySpottedState_t::m_bSpotted);
     result.spotted_by = fields.get<std::array<std::uint32_t, 2>>(
         pawn::m_entitySpottedState + offsets::schema::EntitySpottedState_t::m_bSpottedByMask);
-    if (const auto services = fields.get<memory::Address>(base::m_pItemServices);
-        services && memory::user_range(*services)) {
-        namespace item = offsets::schema::CCSPlayer_ItemServices;
-        const memory::Fields values(
-            reader, *services, {field<std::uint8_t>(item::m_bHasHelmet), field<std::uint8_t>(item::m_bHasDefuser)});
-        if (memory::read_value<memory::Address>(reader, ref.address + base::m_pItemServices) == services) {
-            result.helmet = boolean(values, item::m_bHasHelmet);
-            result.defuser = boolean(values, item::m_bHasDefuser);
-        }
-    }
-    if (const auto services = fields.get<memory::Address>(base::m_pWeaponServices);
-        services && memory::user_range(*services)) {
-        namespace weapon = offsets::schema::CPlayer_WeaponServices;
-        struct VectorHeader {
-            std::int32_t count;
-            std::uint32_t reserved;
-            memory::Address data;
-        };
-        const memory::Fields values(
-            reader, *services,
-            {field<std::uint32_t>(weapon::m_hActiveWeapon), field<VectorHeader>(weapon::m_hMyWeapons)});
-        if (const auto active = values.get<std::uint32_t>(weapon::m_hActiveWeapon); active && *active != UINT32_MAX) {
-            result.active_weapon = model::EntityId{*active};
-        }
-        const auto vector = values.get<VectorHeader>(weapon::m_hMyWeapons);
-        // 以句柄索引空间验证容器格式，不按武器数量随意截断。
-        if (vector && vector->count >= 0 &&
-            static_cast<std::uint32_t>(vector->count) <= layout::entity_index_mask + 1 &&
-            (!vector->count ||
-             memory::user_range(vector->data, static_cast<std::size_t>(vector->count) * sizeof(std::uint32_t)))) {
-            memory::Block handles;
-            handles.read(reader, vector->data, static_cast<std::size_t>(vector->count) * sizeof(std::uint32_t));
-            for (std::int32_t i = 0; i < vector->count; ++i)
-                if (const auto handle = handles.get<std::uint32_t>(i * sizeof(std::uint32_t));
-                    handle && *handle != UINT32_MAX)
-                    result.equipped_weapons.push_back({*handle});
-            const auto close = memory::read_value<VectorHeader>(reader, *services + weapon::m_hMyWeapons);
-            if (!close || close->count != vector->count || close->data != vector->data)
-                result.equipped_weapons.clear();
-        }
-        if (memory::read_value<memory::Address>(reader, ref.address + base::m_pWeaponServices) != services) {
-            result.active_weapon.reset();
-            result.weapon.reset();
-            result.equipped_weapons.clear();
-        }
-    }
     return result;
 }
 } // namespace
@@ -146,19 +100,6 @@ model::Player sample_player(memory::IReadChannel& reader, const Context& context
     result.controller_reports_alive = boolean(fields, controller::m_bPawnIsAlive);
     result.controller_reported_health = fields.get<std::uint32_t>(controller::m_iPawnHealth);
     result.controller_reported_armor = fields.get<std::uint32_t>(controller::m_iPawnArmor);
-    if (const auto pointer = fields.get<memory::Address>(controller::m_sSanitizedPlayerName);
-        pointer && memory::user_range(*pointer)) {
-        result.sanitized_name = memory::read_string(reader, *pointer, 128);
-        if (memory::read_value<memory::Address>(reader, ref.address + controller::m_sSanitizedPlayerName) != pointer)
-            result.sanitized_name.reset();
-    }
-    if (const auto money = fields.get<memory::Address>(controller::m_pInGameMoneyServices);
-        money && memory::user_range(*money)) {
-        result.money = memory::read_value<std::int32_t>(
-            reader, *money + offsets::schema::CCSPlayerController_InGameMoneyServices::m_iAccount);
-        if (memory::read_value<memory::Address>(reader, ref.address + controller::m_pInGameMoneyServices) != money)
-            result.money.reset();
-    }
     if (const auto observer = fields.get<std::uint32_t>(controller::m_hObserverPawn);
         observer && *observer != UINT32_MAX)
         result.observer_pawn = model::EntityId{*observer};
