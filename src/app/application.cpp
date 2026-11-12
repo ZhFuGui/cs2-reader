@@ -39,12 +39,15 @@ void pause_until(std::chrono::steady_clock::time_point deadline, capture::Freque
     }
 }
 } // namespace
-int run(const Options& options, std::ostream& log) {
+int run(const Options& options, std::ostream& log, bool console_controls) {
     stop = false;
-    SetConsoleCtrlHandler(console_handler, TRUE);
     struct Handler {
-        ~Handler() { SetConsoleCtrlHandler(console_handler, FALSE); }
-    } handler;
+        bool installed;
+        ~Handler() {
+            if (installed)
+                SetConsoleCtrlHandler(console_handler, FALSE);
+        }
+    } handler{console_controls && SetConsoleCtrlHandler(console_handler, TRUE)};
     const auto backend = create_backend(); // 唯一选择点；后续没有切换或回退入口。
     const platform::windows::QpcClock clock;
     capture::FrequencyControl frequency(options.hz);
