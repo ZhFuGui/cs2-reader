@@ -3,6 +3,7 @@
 #include "game/cs2/sampling/batch.hpp"
 #include "game/cs2/sampling/local.hpp"
 #include "game/cs2/sampling/world.hpp"
+#include <algorithm>
 #include <stdexcept>
 #include <variant>
 namespace cs2::capture {
@@ -43,11 +44,26 @@ model::Snapshot Collector::capture(std::uint64_t sequence, std::uint64_t epoch) 
     }
     // 全槽位仍有覆盖终态；仅为实际属性任务分配大结果对象，不为空槽位构造 Player/Weapon 变体。
     std::vector<game::EntityValue> values(tasks.size());
+    std::vector<game::EntityBatch> batches;
+    batches.reserve(tasks.size() / sampling_group + (tasks.size() % sampling_group != 0));
+    for (std::size_t first = 0; first < tasks.size(); first += sampling_group) {
+        const auto count = std::min(sampling_group, tasks.size() - first);
+        batches.emplace_back(std::span(tasks).subspan(first, count), std::span(values).subspan(first, count));
+    }
+    pool_.run_ranges(batches.size(), 1, [&](memory::IReadChannel& channel, auto first, auto last) {
+        for (auto i = first; i < last; ++i)
+            batches[i].prepare(channel, directory);
+    });
     const auto rules_started_qpc = clock_.now();
     game::AccuracyRules accuracy_rules(reader_, context_);
-    pool_.run_ranges(tasks.size(), sampling_group, [&](memory::IReadChannel& channel, auto first, auto last) {
-        game::sample_entities(channel, context_, directory, std::span(tasks).subspan(first, last - first),
-                              std::span(values).subspan(first, last - first), bones_, clock_, &accuracy_rules);
+    pool_.run_ranges(tasks.size(), 1, [&](memory::IReadChannel& channel, auto first, auto last) {
+        for (auto i = first; i < last; ++i)
+            batches[i / sampling_group].evaluate(channel, context_, directory, i % sampling_group, clock_,
+                                                 &accuracy_rules);
+    });
+    pool_.run_ranges(batches.size(), 1, [&](memory::IReadChannel& channel, auto first, auto last) {
+        for (auto i = first; i < last; ++i)
+            batches[i].close(channel, bones_);
     });
     const auto changed_rules = accuracy_rules.close();
     const auto rules_finished_qpc = clock_.now();

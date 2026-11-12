@@ -1,6 +1,5 @@
 #include "game/cs2/sampling/weapon.hpp"
 #include "game/cs2/offsets/catalog.hpp"
-#include "game/cs2/sampling/accuracy.hpp"
 #include "game/cs2/sampling/common.hpp"
 namespace cs2::game {
 memory::Fields weapon_fields(memory::Address address) {
@@ -25,8 +24,7 @@ memory::Fields weapon_fields(memory::Address address) {
                            field<std::uint8_t>(weapon::m_bSilencerOn),
                            field<std::uint8_t>(weapon::m_bBurstMode)});
 }
-model::Weapon sample_weapon(memory::IReadChannel& reader, const Context& context, const Directory& directory,
-                            const EntitySample& sample, const capture::IClock& clock, const AccuracyRules* rules) {
+model::Weapon project_weapon(const EntitySample& sample) {
     namespace econ = offsets::schema::C_EconEntity;
     namespace item = offsets::schema::C_EconItemView;
     namespace ammo = offsets::schema::C_BasePlayerWeapon;
@@ -48,7 +46,6 @@ model::Weapon sample_weapon(memory::IReadChannel& reader, const Context& context
     result.reloading = boolean(fields, weapon::m_bInReload);
     result.silenced = boolean(fields, weapon::m_bSilencerOn);
     result.burst_mode = boolean(fields, weapon::m_bBurstMode);
-    result.accuracy_evaluation = sample_weapon_accuracy(reader, context, directory, sample.ref, clock, rules);
     return result;
 }
 } // namespace cs2::game
