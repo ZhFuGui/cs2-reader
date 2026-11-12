@@ -2,7 +2,6 @@
 #include "game/cs2/entity/layout.hpp"
 #include "game/cs2/offsets/catalog.hpp"
 #include "game/cs2/sampling/common.hpp"
-#include "game/cs2/sampling/direction.hpp"
 #include <algorithm>
 
 namespace cs2::game {
@@ -31,14 +30,12 @@ memory::Fields body_fields(memory::Address address) {
          {pawn::m_szLastPlaceName, 18}});
 }
 namespace {
-model::PlayerBody sample_body(memory::IReadChannel& reader, const Context& context, const Directory& directory,
-                              const EntitySample& sample) {
+model::PlayerBody project_body(const EntitySample& sample) {
     namespace base = offsets::schema::C_BasePlayerPawn;
     namespace pawn = offsets::schema::C_CSPlayerPawn;
     namespace pawnbase = offsets::schema::C_CSPlayerPawnBase;
     namespace modelentity = offsets::schema::C_BaseModelEntity;
     using memory::field;
-    const auto& ref = sample.ref;
     const auto& fields = sample.fields;
     model::PlayerBody result;
     result.entity = project_common(sample);
@@ -50,9 +47,6 @@ model::PlayerBody sample_body(memory::IReadChannel& reader, const Context& conte
     result.flash_max_alpha = real(fields, pawnbase::m_flFlashMaxAlpha);
     result.eye_angles = angles(fields, pawn::m_angEyeAngles);
     result.input_eye_angles = angles(fields, base::v_angle);
-    auto direction = sample_direction(reader, context, directory, ref);
-    result.eye_basis = std::move(direction.eye_basis);
-    result.aim_punch = std::move(direction.aim_punch);
     result.view_offset = vector3(fields, modelentity::m_vecViewOffset);
     result.location = fields.text(pawn::m_szLastPlaceName);
     result.spotted = boolean(fields, pawn::m_entitySpottedState + offsets::schema::EntitySpottedState_t::m_bSpotted);
@@ -81,8 +75,7 @@ memory::Fields player_fields(memory::Address address) {
                                     field<std::uint32_t>(controller::m_hObserverPawn),
                                     field<memory::Address>(controller::m_pInGameMoneyServices)});
 }
-model::Player sample_player(memory::IReadChannel& reader, const Context& context, const Directory& directory,
-                            const EntitySample& sample, const EntitySample* body) {
+model::Player project_player(const EntitySample& sample, const EntitySample* body) {
     namespace controller = offsets::schema::CCSPlayerController;
     namespace base = offsets::schema::CBasePlayerController;
     const auto& ref = sample.ref;
@@ -107,7 +100,7 @@ model::Player sample_player(memory::IReadChannel& reader, const Context& context
     if (pawn && *pawn != UINT32_MAX) {
         result.player_pawn = model::EntityId{*pawn};
         if (body)
-            result.body = sample_body(reader, context, directory, *body);
+            result.body = project_body(*body);
     }
     return result;
 }

@@ -1,7 +1,9 @@
 #include "game/cs2/sampling/batch.hpp"
 #include "game/cs2/entity/identity_observation.hpp"
 #include "game/cs2/offsets/catalog.hpp"
+#include "game/cs2/sampling/accuracy.hpp"
 #include "game/cs2/sampling/common.hpp"
+#include "game/cs2/sampling/direction.hpp"
 #include "game/cs2/sampling/player.hpp"
 #include "game/cs2/sampling/skeleton.hpp"
 #include "game/cs2/sampling/weapon.hpp"
@@ -24,21 +26,22 @@ memory::Fields root_fields(const EntityRef& ref) {
         return memory::Fields(ref.address, entity_fields());
     }
 }
-struct Prepared {
-    const EntityRef& ref;
-    memory::Fields fields;
-    model::Transform transform;
-    EntitySample sample() const { return {ref, fields, transform}; }
-};
 } // namespace
-void sample_entities(memory::IReadChannel& reader, const Context& context, const Directory& directory,
-                     std::span<const EntityRef* const> refs, std::span<EntityValue> values, bool bones,
-                     const capture::IClock& clock, const AccuracyRules* rules) {
+EntityBatch::EntityBatch(std::span<const EntityRef* const> refs, std::span<EntityValue> values)
+    : refs_(refs), values_(values), roots_(refs.size()), bodies_(refs.size()) {
     if (refs.size() != values.size())
         throw std::invalid_argument("Entity batch input and output sizes differ");
     for (auto& value : values)
         value = std::monostate{};
-    std::vector<std::optional<Prepared>> roots(refs.size()), bodies(refs.size());
+}
+void EntityBatch::prepare(memory::IReadChannel& reader, const Directory& directory) {
+    if (phase_ != Phase::Created)
+        throw std::logic_error("Entity batch can only be prepared once");
+    phase_ = Phase::Preparing;
+    const auto refs = refs_;
+    const auto values = values_;
+    auto& roots = roots_;
+    auto& bodies = bodies_;
     const auto opening = directory.verify_many(reader, refs);
     std::vector<memory::Fields*> fields;
     for (std::size_t i = 0; i < refs.size(); ++i)
@@ -87,11 +90,11 @@ void sample_entities(memory::IReadChannel& reader, const Context& context, const
         switch (sample.ref.kind) {
         case EntityKind::Controller: {
             const auto body = bodies[i] ? std::optional(bodies[i]->sample()) : std::nullopt;
-            values[i] = sample_player(reader, context, directory, sample, body ? &*body : nullptr);
+            values[i] = project_player(sample, body ? &*body : nullptr);
             break;
         }
         case EntityKind::Weapon:
-            values[i] = sample_weapon(reader, context, directory, sample, clock, rules);
+            values[i] = project_weapon(sample);
             break;
         case EntityKind::Bomb:
             values[i] = sample_bomb(sample);
@@ -108,6 +111,29 @@ void sample_entities(memory::IReadChannel& reader, const Context& context, const
             break;
         }
     }
+    phase_ = Phase::Prepared;
+}
+void EntityBatch::evaluate(memory::IReadChannel& reader, const Context& context, const Directory& directory,
+                           std::size_t index, const capture::IClock& clock, const AccuracyRules* rules) {
+    if (phase_ != Phase::Prepared || index >= values_.size())
+        throw std::logic_error("Entity evaluation outside its prepared batch");
+    if (auto* player = std::get_if<model::Player>(&values_[index]); player && player->body) {
+        auto direction = sample_direction(reader, context, directory, bodies_[index]->ref);
+        player->body->eye_basis = std::move(direction.eye_basis);
+        player->body->aim_punch = std::move(direction.aim_punch);
+    } else if (auto* weapon = std::get_if<model::Weapon>(&values_[index])) {
+        weapon->accuracy_evaluation =
+            sample_weapon_accuracy(reader, context, directory, roots_[index]->ref, clock, rules);
+    }
+}
+void EntityBatch::close(memory::IReadChannel& reader, bool bones) {
+    if (phase_ != Phase::Prepared)
+        throw std::logic_error("Entity batch close outside its prepared phase");
+    phase_ = Phase::Closed;
+    const auto refs = refs_;
+    const auto values = values_;
+    auto& roots = roots_;
+    auto& bodies = bodies_;
     std::vector<PlayerSupplementRead> supplements;
     for (std::size_t i = 0; i < roots.size(); ++i)
         if (roots[i])
