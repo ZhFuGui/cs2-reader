@@ -13,8 +13,13 @@ int run_reader(int argc, wchar_t** argv) {
     cs2::diagnostics::RuntimeLog log;
     try {
         const auto options = cs2::app::parse_options(argc, argv);
-        if (options.log_file)
-            log.enable_file();
+        if (options.log_file) {
+            try {
+                log.enable_file();
+            } catch (const std::runtime_error& error) {
+                log.stream() << "File logging unavailable; in-memory logging continues: " << error.what() << '\n';
+            }
+        }
         if (options.help) {
             cs2::app::print_usage();
             return 0;
