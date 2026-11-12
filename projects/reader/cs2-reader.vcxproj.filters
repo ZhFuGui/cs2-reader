@@ -215,6 +215,12 @@
     <ClInclude Include="$(ReaderRoot)src\memory\read_plan.hpp">
       <Filter>memory</Filter>
     </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\dependent_read.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\memory\dependent_read.cpp">
+      <Filter>memory</Filter>
+    </ClCompile>
     <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\identity_observation.hpp">
       <Filter>game\cs2\entity</Filter>
     </ClInclude>

@@ -4,7 +4,16 @@
 
 namespace cs2::memory {
 using Address = std::uint64_t;
-enum class TransferStatus { Complete, Partial, InvalidRange, AccessDenied, Unavailable, Unsupported, BackendFailure };
+enum class TransferStatus {
+    Complete,
+    Partial,
+    InvalidRange,
+    AccessDenied,
+    Unavailable,
+    Unsupported,
+    BackendFailure,
+    DependencyFailed
+};
 struct TransferResult {
     TransferStatus status = TransferStatus::Unavailable;
     std::size_t transferred = 0;

@@ -9,20 +9,29 @@ void Block::read(IReadChannel& channel, Address address, std::size_t bytes) {
     read_many(channel, std::span(&request, 1));
 }
 void Block::read_many(IReadChannel& channel, std::span<const Read> blocks) {
-    struct Item {
-        const Read* source;
-        ReadPlan::Ticket ticket;
-    };
     ReadPlan opening(blocks.size());
-    std::vector<Item> items;
+    std::vector<PlannedRead> items;
     for (const auto& request : blocks) {
         auto& block = request.block;
         block.data_.resize(request.bytes);
         block.valid_.assign(request.bytes, 0);
         if (request.bytes && user_range(request.address, request.bytes))
-            items.push_back({&request, opening.add(request.address, block.data_.data(), request.bytes)});
+            items.push_back({block, opening.add(request.address, block.data_.data(), request.bytes)});
     }
     opening.execute(channel);
+    finish_many(channel, opening, items);
+}
+ReadPlan::Ticket Block::schedule(ReadPlan& plan, Address address, std::size_t bytes) {
+    data_.resize(bytes);
+    valid_.assign(bytes, 0);
+    return plan.add(address, data_.data(), bytes);
+}
+ReadPlan::Ticket Block::schedule_from(ReadPlan& plan, ReadPlan::Ticket parent, std::int64_t offset, std::size_t bytes) {
+    data_.resize(bytes);
+    valid_.assign(bytes, 0);
+    return plan.add_from(parent, offset, data_.data(), bytes);
+}
+void Block::finish_many(IReadChannel& channel, const ReadPlan& opening, std::span<const PlannedRead> items) {
     struct Page {
         Block* block;
         std::size_t offset, bytes;
@@ -31,17 +40,21 @@ void Block::read_many(IReadChannel& channel, std::span<const Read> blocks) {
     ReadPlan fallback;
     std::vector<Page> pages;
     for (const auto& item : items) {
-        const auto& request = *item.source;
-        auto& block = request.block;
+        auto& block = item.block;
+        const auto address = opening.source_address(item.ticket);
+        if (!address || !user_range(*address, block.data_.size()))
+            continue;
         if (opening.complete(item.ticket)) {
             std::fill(block.valid_.begin(), block.valid_.end(), static_cast<unsigned char>(1));
             continue;
         }
-        for (std::size_t offset = 0; offset < request.bytes;) {
-            const auto count =
-                std::min(request.bytes - offset, std::size_t(4096 - ((request.address + offset) & 4095)));
+        const auto status = opening.result(item.ticket).status;
+        if (status != TransferStatus::Unavailable && status != TransferStatus::Partial)
+            continue;
+        for (std::size_t offset = 0; offset < block.data_.size();) {
+            const auto count = std::min(block.data_.size() - offset, std::size_t(4096 - ((*address + offset) & 4095)));
             pages.push_back(
-                {&block, offset, count, fallback.add(request.address + offset, block.data_.data() + offset, count)});
+                {&block, offset, count, fallback.add(*address + offset, block.data_.data() + offset, count)});
             offset += count;
         }
     }

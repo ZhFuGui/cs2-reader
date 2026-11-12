@@ -1,5 +1,6 @@
 #pragma once
 #include "memory/read_channel.hpp"
+#include "memory/read_plan.hpp"
 #include <algorithm>
 #include <span>
 #include <string>
@@ -21,6 +22,14 @@ class Block {
         std::size_t bytes;
     };
     void read(IReadChannel& channel, Address address, std::size_t bytes);
+    struct PlannedRead {
+        Block& block;
+        ReadPlan::Ticket ticket;
+    };
+    // schedule 后保持 Block 地址稳定；finish_many 统一处理成功区间和有限页回退。
+    ReadPlan::Ticket schedule(ReadPlan&, Address, std::size_t bytes);
+    ReadPlan::Ticket schedule_from(ReadPlan&, ReadPlan::Ticket parent, std::int64_t offset, std::size_t bytes);
+    static void finish_many(IReadChannel&, const ReadPlan&, std::span<const PlannedRead>);
     // 各请求必须引用不同的 Block；调用期间保持实例及请求数组稳定。
     static void read_many(IReadChannel&, std::span<const Read>);
     [[nodiscard]] bool valid(std::size_t offset, std::size_t bytes) const noexcept;

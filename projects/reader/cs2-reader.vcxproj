@@ -134,6 +134,8 @@
     <ClCompile Include="$(ReaderRoot)src\capture\worker_pool.cpp" />
     <ClInclude Include="$(ReaderRoot)src\capture\worker_pool.hpp" />
     <ClInclude Include="$(ReaderRoot)src\memory\read_plan.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\dependent_read.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\memory\dependent_read.cpp" />
     <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\identity_observation.hpp" />
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\batch.cpp">
       <ObjectFileName>$(IntDir)src_game_cs2_sampling_batch.obj</ObjectFileName>

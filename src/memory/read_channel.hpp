@@ -1,4 +1,5 @@
 #pragma once
+#include "memory/dependent_read.hpp"
 #include "memory/transfer_result.hpp"
 #include <cstring>
 #include <optional>
@@ -10,6 +11,8 @@ struct ReadMetrics {
     std::uint64_t calls = 0, requested = 0, received = 0, failures = 0;
     std::uint64_t hypercall_single = 0, hypercall_batch = 0, batch_items = 0, batch_errors = 0;
     std::uint64_t batch_item_splits = 0, batch_byte_splits = 0;
+    // dependent 是 batch 的子集；现有协议中的 batch 汇总仍包含全部批读。
+    std::uint64_t hypercall_dependent = 0, dependent_items = 0;
     ReadMetrics& operator+=(const ReadMetrics& rhs) noexcept {
         calls += rhs.calls;
         requested += rhs.requested;
@@ -21,6 +24,8 @@ struct ReadMetrics {
         batch_errors += rhs.batch_errors;
         batch_item_splits += rhs.batch_item_splits;
         batch_byte_splits += rhs.batch_byte_splits;
+        hypercall_dependent += rhs.hypercall_dependent;
+        dependent_items += rhs.dependent_items;
         return *this;
     }
 };
@@ -40,6 +45,8 @@ class IReadChannel {
         for (auto& request : requests)
             request.result = read(request.address, request.destination, request.bytes);
     }
+    // 默认解释供离线通道验证；生产后端覆盖为原生依赖批读。不是原子快照。
+    virtual void read_dependent(std::span<DependentRead>) noexcept;
     virtual ReadMetrics take_backend_metrics() noexcept { return {}; }
 };
 template <class T> [[nodiscard]] std::optional<T> read_value(IReadChannel& channel, Address address) noexcept {
@@ -59,6 +66,11 @@ class MeteredChannel final : public IReadChannel {
     }
     void read_many(std::span<ReadRequest> requests) noexcept override {
         source_.read_many(requests);
+        for (const auto& request : requests)
+            account(request.result, request.bytes);
+    }
+    void read_dependent(std::span<DependentRead> requests) noexcept override {
+        source_.read_dependent(requests);
         for (const auto& request : requests)
             account(request.result, request.bytes);
     }
