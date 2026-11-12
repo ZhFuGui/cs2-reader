@@ -167,6 +167,7 @@
     <ClInclude Include="$(ReaderRoot)src\memory\block_reader.hpp" />
     <ClCompile Include="$(ReaderRoot)src\memory\module_walker.cpp" />
     <ClInclude Include="$(ReaderRoot)src\memory\read_channel.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\read_error.hpp" />
     <ClInclude Include="$(ReaderRoot)src\memory\session.hpp" />
     <ClInclude Include="$(ReaderRoot)src\memory\transfer_result.hpp" />
     <ClInclude Include="$(ReaderRoot)src\memory\write_channel.hpp" />

@@ -1,10 +1,11 @@
 #pragma once
+#include "memory/read_error.hpp"
 #include "memory/session.hpp"
 #include <stdexcept>
 namespace cs2::game {
-class ContextPending : public std::runtime_error {
+class ContextPending : public memory::ReadUnavailable {
   public:
-    using std::runtime_error::runtime_error;
+    using memory::ReadUnavailable::ReadUnavailable;
 };
 struct Context {
     memory::Module client, engine;
