@@ -3,23 +3,17 @@
 #include "game/cs2/offsets/catalog.hpp"
 #include "game/cs2/sampling/common.hpp"
 #include "game/cs2/sampling/direction.hpp"
-#include "game/cs2/sampling/skeleton.hpp"
-#include "game/cs2/sampling/weapon.hpp"
 #include <algorithm>
 
 namespace cs2::game {
-namespace {
-std::optional<model::PlayerBody> sample_body(memory::IReadChannel& reader, const Context& context,
-                                             const Directory& directory, const EntityRef& ref, bool bones) {
-    if (ref.kind != EntityKind::PlayerPawn || !directory.verify(reader, ref))
-        return std::nullopt;
+memory::Fields body_fields(memory::Address address) {
     namespace base = offsets::schema::C_BasePlayerPawn;
     namespace pawn = offsets::schema::C_CSPlayerPawn;
     namespace pawnbase = offsets::schema::C_CSPlayerPawnBase;
     namespace modelentity = offsets::schema::C_BaseModelEntity;
     using memory::field;
-    const memory::Fields fields(
-        reader, ref.address, entity_fields(),
+    return memory::Fields(
+        address, entity_fields(),
         {field<memory::Address>(base::m_pWeaponServices),
          field<memory::Address>(base::m_pItemServices),
          field<model::Vec3>(modelentity::m_vecViewOffset),
@@ -35,8 +29,19 @@ std::optional<model::PlayerBody> sample_body(memory::IReadChannel& reader, const
          field<std::array<std::uint32_t, 2>>(pawn::m_entitySpottedState +
                                              offsets::schema::EntitySpottedState_t::m_bSpottedByMask),
          {pawn::m_szLastPlaceName, 18}});
+}
+namespace {
+model::PlayerBody sample_body(memory::IReadChannel& reader, const Context& context, const Directory& directory,
+                              const EntitySample& sample) {
+    namespace base = offsets::schema::C_BasePlayerPawn;
+    namespace pawn = offsets::schema::C_CSPlayerPawn;
+    namespace pawnbase = offsets::schema::C_CSPlayerPawnBase;
+    namespace modelentity = offsets::schema::C_BaseModelEntity;
+    using memory::field;
+    const auto& ref = sample.ref;
+    const auto& fields = sample.fields;
     model::PlayerBody result;
-    result.entity = sample_common(reader, ref, fields);
+    result.entity = project_common(sample);
     result.armor = fields.get<std::int32_t>(pawn::m_ArmorValue);
     result.shots_fired = fields.get<std::int32_t>(pawn::m_iShotsFired);
     result.scoped = boolean(fields, pawn::m_bIsScoped);
@@ -99,37 +104,35 @@ std::optional<model::PlayerBody> sample_body(memory::IReadChannel& reader, const
             result.equipped_weapons.clear();
         }
     }
-    if (bones)
-        result.skeleton = sample_skeleton(
-            reader, ref.address, fields.get<memory::Address>(offsets::schema::C_BaseEntity::m_pGameSceneNode));
-    if (!directory.verify(reader, ref))
-        return std::nullopt;
     return result;
 }
 } // namespace
-std::optional<model::Player> sample_player(memory::IReadChannel& reader, const Context& context,
-                                           const Directory& directory, const EntityRef& ref, bool bones) {
-    if (ref.kind != EntityKind::Controller || !directory.verify(reader, ref))
-        return std::nullopt;
+memory::Fields player_fields(memory::Address address) {
     namespace controller = offsets::schema::CCSPlayerController;
     namespace base = offsets::schema::CBasePlayerController;
     using memory::field;
-    const memory::Fields fields(reader, ref.address,
-                                {{base::m_iszPlayerName, 128},
-                                 field<memory::Address>(controller::m_sSanitizedPlayerName),
-                                 field<std::uint64_t>(base::m_steamID),
-                                 field<std::int32_t>(base::m_iConnected),
-                                 field<std::uint8_t>(base::m_bIsLocalPlayerController),
-                                 field<std::uint8_t>(offsets::schema::C_BaseEntity::m_iTeamNum),
-                                 field<std::int32_t>(controller::m_iPing),
-                                 field<std::int32_t>(controller::m_iScore),
-                                 field<std::int32_t>(controller::m_iPawnBotDifficulty),
-                                 field<std::uint8_t>(controller::m_bPawnIsAlive),
-                                 field<std::uint32_t>(controller::m_iPawnHealth),
-                                 field<std::uint32_t>(controller::m_iPawnArmor),
-                                 field<std::uint32_t>(controller::m_hPlayerPawn),
-                                 field<std::uint32_t>(controller::m_hObserverPawn),
-                                 field<memory::Address>(controller::m_pInGameMoneyServices)});
+    return memory::Fields(address, {{base::m_iszPlayerName, 128},
+                                    field<memory::Address>(controller::m_sSanitizedPlayerName),
+                                    field<std::uint64_t>(base::m_steamID),
+                                    field<std::int32_t>(base::m_iConnected),
+                                    field<std::uint8_t>(base::m_bIsLocalPlayerController),
+                                    field<std::uint8_t>(offsets::schema::C_BaseEntity::m_iTeamNum),
+                                    field<std::int32_t>(controller::m_iPing),
+                                    field<std::int32_t>(controller::m_iScore),
+                                    field<std::int32_t>(controller::m_iPawnBotDifficulty),
+                                    field<std::uint8_t>(controller::m_bPawnIsAlive),
+                                    field<std::uint32_t>(controller::m_iPawnHealth),
+                                    field<std::uint32_t>(controller::m_iPawnArmor),
+                                    field<std::uint32_t>(controller::m_hPlayerPawn),
+                                    field<std::uint32_t>(controller::m_hObserverPawn),
+                                    field<memory::Address>(controller::m_pInGameMoneyServices)});
+}
+model::Player sample_player(memory::IReadChannel& reader, const Context& context, const Directory& directory,
+                            const EntitySample& sample, const EntitySample* body) {
+    namespace controller = offsets::schema::CCSPlayerController;
+    namespace base = offsets::schema::CBasePlayerController;
+    const auto& ref = sample.ref;
+    const auto& fields = sample.fields;
     model::Player result;
     result.controller.handle = ref.handle;
     result.name = fields.text(base::m_iszPlayerName);
@@ -162,15 +165,9 @@ std::optional<model::Player> sample_player(memory::IReadChannel& reader, const C
     const auto pawn = fields.get<std::uint32_t>(controller::m_hPlayerPawn);
     if (pawn && *pawn != UINT32_MAX) {
         result.player_pawn = model::EntityId{*pawn};
-        if (const auto* entity = directory.resolve(*pawn))
-            result.body = sample_body(reader, context, directory, *entity, bones);
-        if (memory::read_value<std::uint32_t>(reader, ref.address + controller::m_hPlayerPawn) != pawn) {
-            result.player_pawn.reset();
-            result.body.reset();
-        }
+        if (body)
+            result.body = sample_body(reader, context, directory, *body);
     }
-    if (!directory.verify(reader, ref))
-        return std::nullopt;
     return result;
 }
 } // namespace cs2::game

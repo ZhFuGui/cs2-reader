@@ -133,6 +133,12 @@
     <ClInclude Include="$(ReaderRoot)src\capture\collector.hpp" />
     <ClCompile Include="$(ReaderRoot)src\capture\worker_pool.cpp" />
     <ClInclude Include="$(ReaderRoot)src\capture\worker_pool.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\read_plan.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\identity_observation.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\batch.cpp">
+      <ObjectFileName>$(IntDir)src_game_cs2_sampling_batch.obj</ObjectFileName>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\batch.hpp" />
     <ClCompile Include="$(ReaderRoot)src\game\cs2\entity\directory.cpp" />
     <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\directory.hpp" />
     <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\layout.hpp" />

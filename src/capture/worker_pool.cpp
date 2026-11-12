@@ -40,11 +40,18 @@ WorkerPool::~WorkerPool() {
             worker->thread.join();
 }
 void WorkerPool::run(std::size_t count, std::function<void(memory::IReadChannel&, std::size_t)> task) {
+    run_ranges(count, 1, [task = std::move(task)](auto& channel, auto first, auto) { task(channel, first); });
+}
+void WorkerPool::run_ranges(std::size_t count, std::size_t grain,
+                            std::function<void(memory::IReadChannel&, std::size_t, std::size_t)> task) {
+    if (!grain)
+        throw std::invalid_argument("Worker group size must be positive");
     const std::lock_guard owner(run_mutex_);
     {
         std::lock_guard lock(mutex_);
         task_ = std::move(task);
         count_ = count;
+        grain_ = grain;
         next_ = 0;
         error_ = {};
         remaining_ = workers_.size();
@@ -68,17 +75,15 @@ void WorkerPool::work(Worker& worker) {
             observed = generation_;
         }
         for (;;) {
-            const auto first = next_.fetch_add(8, std::memory_order_relaxed);
+            const auto first = next_.fetch_add(grain_, std::memory_order_relaxed);
             if (first >= count_)
                 break;
-            for (auto i = first; i < std::min(first + 8, count_); ++i) {
-                try {
-                    task_(*worker.reader, i);
-                } catch (...) {
-                    const std::lock_guard lock(mutex_);
-                    if (!error_)
-                        error_ = std::current_exception();
-                }
+            try {
+                task_(*worker.reader, first, first + std::min(grain_, count_ - first));
+            } catch (...) {
+                const std::lock_guard lock(mutex_);
+                if (!error_)
+                    error_ = std::current_exception();
             }
         }
         {

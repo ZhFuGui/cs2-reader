@@ -1,5 +1,6 @@
 #include "game/cs2/sampling/common.hpp"
 #include "game/cs2/offsets/catalog.hpp"
+#include "memory/read_plan.hpp"
 namespace cs2::game {
 std::optional<bool> boolean(const memory::Fields& fields, std::size_t offset) {
     const auto value = fields.get<std::uint8_t>(offset);
@@ -23,10 +24,9 @@ std::span<const memory::Field> entity_fields() noexcept {
     using namespace offsets::schema::C_BaseEntity;
     using memory::field;
     static constexpr memory::Field fields[]{
-        field<memory::Address>(m_pGameSceneNode), field<std::int32_t>(m_iMaxHealth),
-        field<std::int32_t>(m_iHealth), field<std::uint8_t>(m_lifeState),
-        field<std::uint8_t>(m_iTeamNum), field<std::uint32_t>(m_fFlags),
-        field<model::Vec3>(m_vecAbsVelocity), field<std::uint32_t>(m_hOwnerEntity)};
+        field<memory::Address>(m_pGameSceneNode), field<std::int32_t>(m_iMaxHealth),   field<std::int32_t>(m_iHealth),
+        field<std::uint8_t>(m_lifeState),         field<std::uint8_t>(m_iTeamNum),     field<std::uint32_t>(m_fFlags),
+        field<model::Vec3>(m_vecAbsVelocity),     field<std::uint32_t>(m_hOwnerEntity)};
     return fields;
 }
 model::EntityState sample_common(memory::IReadChannel& reader, const EntityRef& ref) {
@@ -34,8 +34,15 @@ model::EntityState sample_common(memory::IReadChannel& reader, const EntityRef& 
     return sample_common(reader, ref, fields);
 }
 model::EntityState sample_common(memory::IReadChannel& reader, const EntityRef& ref, const memory::Fields& fields) {
+    model::Transform transform;
+    const TransformRead request{ref, fields, transform};
+    sample_transforms(reader, std::span(&request, 1));
+    return project_common({ref, fields, std::move(transform)});
+}
+model::EntityState project_common(const EntitySample& sample) {
     using namespace offsets::schema::C_BaseEntity;
-    using memory::field;
+    const auto& ref = sample.ref;
+    const auto& fields = sample.fields;
     model::EntityState result;
     result.id.handle = ref.handle;
     result.designer_name = ref.designer_name;
@@ -47,22 +54,50 @@ model::EntityState sample_common(memory::IReadChannel& reader, const EntityRef& 
     result.world_velocity = vector3(fields, m_vecAbsVelocity);
     if (const auto owner = fields.get<std::uint32_t>(m_hOwnerEntity); owner && *owner != UINT32_MAX)
         result.owner = model::EntityId{*owner};
-    const auto node = fields.get<memory::Address>(m_pGameSceneNode);
-    if (node && memory::user_range(*node)) {
-        using namespace offsets::schema::CGameSceneNode;
-        const memory::Fields scene(reader, *node,
-                                   {field<memory::Address>(m_pOwner), field<model::Vec3>(m_vecAbsOrigin),
-                                    field<model::Angles>(m_angAbsRotation), field<float>(m_flAbsScale),
-                                    field<std::uint8_t>(m_bDormant)});
-        if (scene.get<memory::Address>(m_pOwner) == std::optional(ref.address)) {
-            result.transform.position = vector3(scene, m_vecAbsOrigin);
-            result.transform.rotation = angles(scene, m_angAbsRotation);
-            result.transform.scale = real(scene, m_flAbsScale);
-            result.transform.dormant = boolean(scene, m_bDormant);
-        }
-        if (memory::read_value<memory::Address>(reader, ref.address + m_pGameSceneNode) != node)
-            result.transform = {};
-    }
+    result.transform = sample.transform;
     return result;
+}
+void sample_transforms(memory::IReadChannel& reader, std::span<const TransformRead> requests) {
+    using namespace offsets::schema::CGameSceneNode;
+    using memory::field;
+    struct Scene {
+        const TransformRead* request;
+        memory::Address node, closing{};
+        memory::Fields fields;
+        memory::ReadPlan::Ticket ticket{};
+    };
+    std::vector<Scene> scenes;
+    scenes.reserve(requests.size());
+    for (const auto& request : requests) {
+        request.result = {};
+        const auto node = request.fields.get<memory::Address>(offsets::schema::C_BaseEntity::m_pGameSceneNode);
+        if (node && memory::user_range(*node))
+            scenes.push_back(
+                {&request,
+                 *node,
+                 {},
+                 memory::Fields(*node, {field<memory::Address>(m_pOwner), field<model::Vec3>(m_vecAbsOrigin),
+                                        field<model::Angles>(m_angAbsRotation), field<float>(m_flAbsScale),
+                                        field<std::uint8_t>(m_bDormant)})});
+    }
+    std::vector<memory::Fields*> fields;
+    for (auto& scene : scenes)
+        fields.push_back(&scene.fields);
+    memory::Fields::read_many(reader, fields);
+    memory::ReadPlan closing(scenes.size());
+    for (auto& scene : scenes)
+        scene.ticket =
+            closing.add(scene.request->ref.address + offsets::schema::C_BaseEntity::m_pGameSceneNode, scene.closing);
+    closing.execute(reader);
+    for (const auto& scene : scenes) {
+        if (!closing.complete(scene.ticket) || scene.closing != scene.node ||
+            scene.fields.get<memory::Address>(m_pOwner) != std::optional(scene.request->ref.address))
+            continue;
+        auto& transform = scene.request->result;
+        transform.position = vector3(scene.fields, m_vecAbsOrigin);
+        transform.rotation = angles(scene.fields, m_angAbsRotation);
+        transform.scale = real(scene.fields, m_flAbsScale);
+        transform.dormant = boolean(scene.fields, m_bDormant);
+    }
 }
 } // namespace cs2::game

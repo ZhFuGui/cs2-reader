@@ -33,19 +33,21 @@ model::World sample_world(memory::IReadChannel& reader, const Context& context) 
         return {};
     return result;
 }
-std::optional<model::Bomb> sample_bomb(memory::IReadChannel& reader, const Directory& directory, const EntityRef& ref) {
-    if (ref.kind != EntityKind::Bomb || !directory.verify(reader, ref))
-        return std::nullopt;
+memory::Fields bomb_fields(memory::Address address) {
     using namespace offsets::schema::C_PlantedC4;
     using memory::field;
-    const memory::Fields fields(reader, ref.address, entity_fields(),
-                                {field<std::uint8_t>(m_bBombTicking), field<std::uint8_t>(m_bBombDefused),
-                                 field<std::uint8_t>(m_bBeingDefused), field<std::uint8_t>(m_bHasExploded),
-                                 field<std::int32_t>(m_nBombSite), field<float>(m_flC4Blow),
-                                 field<float>(m_flTimerLength), field<float>(m_flDefuseCountDown),
-                                 field<float>(m_flDefuseLength), field<std::uint32_t>(m_hBombDefuser)});
+    return memory::Fields(address, entity_fields(),
+                          {field<std::uint8_t>(m_bBombTicking), field<std::uint8_t>(m_bBombDefused),
+                           field<std::uint8_t>(m_bBeingDefused), field<std::uint8_t>(m_bHasExploded),
+                           field<std::int32_t>(m_nBombSite), field<float>(m_flC4Blow), field<float>(m_flTimerLength),
+                           field<float>(m_flDefuseCountDown), field<float>(m_flDefuseLength),
+                           field<std::uint32_t>(m_hBombDefuser)});
+}
+model::Bomb sample_bomb(const EntitySample& sample) {
+    using namespace offsets::schema::C_PlantedC4;
+    const auto& fields = sample.fields;
     model::Bomb result;
-    result.entity = sample_common(reader, ref, fields);
+    result.entity = project_common(sample);
     result.ticking = boolean(fields, m_bBombTicking);
     result.defused = boolean(fields, m_bBombDefused);
     result.being_defused = boolean(fields, m_bBeingDefused);
@@ -57,38 +59,40 @@ std::optional<model::Bomb> sample_bomb(memory::IReadChannel& reader, const Direc
     result.defuse_length = real(fields, m_flDefuseLength);
     if (const auto defuser = fields.get<std::uint32_t>(m_hBombDefuser); defuser && *defuser != UINT32_MAX)
         result.defuser = model::EntityId{*defuser};
-    if (!directory.verify(reader, ref))
-        return std::nullopt;
     return result;
 }
-std::optional<model::Projectile> sample_projectile(memory::IReadChannel& reader, const Directory& directory,
-                                                   const EntityRef& ref) {
-    if (ref.kind != EntityKind::Projectile || !directory.verify(reader, ref))
-        return std::nullopt;
+memory::Fields projectile_fields(const EntityRef& ref) {
     using namespace offsets::schema::C_BaseCSGrenadeProjectile;
     using memory::field;
-    const memory::Fields fields(reader, ref.address, entity_fields(),
-                                {field<model::Vec3>(m_vInitialPosition), field<model::Vec3>(m_vInitialVelocity),
-                                 field<std::int32_t>(m_nBounces), field<std::int32_t>(m_nExplodeEffectTickBegin),
-                                 field<std::uint8_t>(m_bExplodeEffectBegan), field<float>(m_flSpawnTime)});
+    std::vector<memory::Field> fields{field<model::Vec3>(m_vInitialPosition),
+                                      field<model::Vec3>(m_vInitialVelocity),
+                                      field<std::int32_t>(m_nBounces),
+                                      field<std::int32_t>(m_nExplodeEffectTickBegin),
+                                      field<std::uint8_t>(m_bExplodeEffectBegan),
+                                      field<float>(m_flSpawnTime)};
+    if (ref.designer_name == "smokegrenade_projectile") {
+        using namespace offsets::schema::C_SmokeGrenadeProjectile;
+        fields.push_back(field<std::int32_t>(m_nSmokeEffectTickBegin));
+        fields.push_back(field<std::uint8_t>(m_bDidSmokeEffect));
+    }
+    return memory::Fields(ref.address, entity_fields(), fields);
+}
+model::Projectile sample_projectile(const EntitySample& sample) {
+    using namespace offsets::schema::C_BaseCSGrenadeProjectile;
+    const auto& fields = sample.fields;
     model::Projectile result;
-    result.entity = sample_common(reader, ref, fields);
+    result.entity = project_common(sample);
     result.initial_position = vector3(fields, m_vInitialPosition);
     result.initial_velocity = vector3(fields, m_vInitialVelocity);
     result.bounces = fields.get<std::int32_t>(m_nBounces);
     result.explode_tick = fields.get<std::int32_t>(m_nExplodeEffectTickBegin);
     result.exploded = boolean(fields, m_bExplodeEffectBegan);
     result.spawn_time = real(fields, m_flSpawnTime);
-    if (ref.designer_name == "smokegrenade_projectile") {
+    if (sample.ref.designer_name == "smokegrenade_projectile") {
         using namespace offsets::schema::C_SmokeGrenadeProjectile;
-        const memory::Fields smoke(
-            reader, ref.address,
-            {field<std::int32_t>(m_nSmokeEffectTickBegin), field<std::uint8_t>(m_bDidSmokeEffect)});
-        result.smoke_tick = smoke.get<std::int32_t>(m_nSmokeEffectTickBegin);
-        result.smoke_started = boolean(smoke, m_bDidSmokeEffect);
+        result.smoke_tick = fields.get<std::int32_t>(m_nSmokeEffectTickBegin);
+        result.smoke_started = boolean(fields, m_bDidSmokeEffect);
     }
-    if (!directory.verify(reader, ref))
-        return std::nullopt;
     return result;
 }
 } // namespace cs2::game

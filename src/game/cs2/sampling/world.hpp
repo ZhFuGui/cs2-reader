@@ -1,7 +1,9 @@
 #pragma once
-#include "game/cs2/entity/directory.hpp"
+#include "game/cs2/sampling/common.hpp"
 namespace cs2::game {
 model::World sample_world(memory::IReadChannel&, const Context&);
-std::optional<model::Bomb> sample_bomb(memory::IReadChannel&, const Directory&, const EntityRef&);
-std::optional<model::Projectile> sample_projectile(memory::IReadChannel&, const Directory&, const EntityRef&);
+memory::Fields bomb_fields(memory::Address);
+memory::Fields projectile_fields(const EntityRef&);
+model::Bomb sample_bomb(const EntitySample&);
+model::Projectile sample_projectile(const EntitySample&);
 } // namespace cs2::game
