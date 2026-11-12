@@ -212,6 +212,15 @@
     <ClInclude Include="$(ReaderRoot)src\capture\worker_pool.hpp">
       <Filter>capture</Filter>
     </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\read_plan.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\identity_observation.hpp">
+      <Filter>game\cs2\entity</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\sampling\batch.hpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClInclude>
     <ClInclude Include="$(ReaderRoot)src\game\cs2\entity\directory.hpp">
       <Filter>game\cs2\entity</Filter>
     </ClInclude>
@@ -320,6 +329,9 @@
       <Filter>game\cs2\offsets</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\common.cpp">
+      <Filter>game\cs2\sampling</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\batch.cpp">
       <Filter>game\cs2\sampling</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\game\cs2\sampling\local.cpp">

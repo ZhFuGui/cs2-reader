@@ -15,6 +15,8 @@ class WorkerPool {
     WorkerPool(const WorkerPool&) = delete;
     // 回调只写自己对应的结果槽位；一个组结束后才允许下一组复用 worker 通道。
     void run(std::size_t count, std::function<void(memory::IReadChannel&, std::size_t)> task);
+    void run_ranges(std::size_t count, std::size_t grain,
+                    std::function<void(memory::IReadChannel&, std::size_t, std::size_t)> task);
     memory::ReadMetrics take_metrics();
     std::size_t size() const noexcept { return workers_.size(); }
 
@@ -28,9 +30,9 @@ class WorkerPool {
     std::vector<std::unique_ptr<Worker>> workers_;
     std::mutex mutex_, run_mutex_;
     std::condition_variable ready_, finished_;
-    std::function<void(memory::IReadChannel&, std::size_t)> task_;
+    std::function<void(memory::IReadChannel&, std::size_t, std::size_t)> task_;
     std::atomic_size_t next_{0};
-    std::size_t count_ = 0, remaining_ = 0;
+    std::size_t count_ = 0, remaining_ = 0, grain_ = 1;
     std::uint64_t generation_ = 0;
     bool stopping_ = false;
     std::exception_ptr error_;

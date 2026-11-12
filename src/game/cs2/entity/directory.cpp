@@ -1,4 +1,5 @@
 #include "game/cs2/entity/directory.hpp"
+#include "game/cs2/entity/identity_observation.hpp"
 #include "game/cs2/entity/layout.hpp"
 #include "game/cs2/offsets/catalog.hpp"
 #include "memory/block_reader.hpp"
@@ -109,52 +110,110 @@ void Directory::discover(memory::IReadChannel& channel, const Context& context) 
         throw std::runtime_error("Entity directory changed while copying its slots");
 }
 void Directory::classify(memory::IReadChannel& channel, std::size_t index) {
-    auto& slot = slots[index];
-    if (slot.state != SlotState::Pending)
-        return;
-    if (!verify(channel, slot.entity)) {
-        slot.state = SlotState::Changed;
-        return;
+    classify_many(channel, std::span(&index, 1));
+}
+void Directory::classify_many(memory::IReadChannel& channel, std::span<const std::size_t> indices) {
+    std::vector<Slot*> pending;
+    std::vector<const EntityRef*> identities;
+    for (auto index : indices) {
+        auto& slot = slots.at(index);
+        if (slot.state == SlotState::Pending) {
+            pending.push_back(&slot);
+            identities.push_back(&slot.entity);
+        }
     }
-    const auto name = memory::read_string(channel, slot.entity.designer_pointer, 128);
-    if (!name) {
-        slot.state = SlotState::Unreadable;
-        return;
+    const auto verified = verify_many(channel, identities);
+    std::vector<memory::Block> names(pending.size());
+    std::vector<memory::Block::Read> reads;
+    for (std::size_t i = 0; i < pending.size(); ++i)
+        if (verified[i])
+            reads.push_back({names[i], pending[i]->entity.designer_pointer, 128});
+        else
+            pending[i]->state = SlotState::Changed;
+    memory::Block::read_many(channel, reads);
+    for (std::size_t i = 0; i < pending.size(); ++i) {
+        if (!verified[i])
+            continue;
+        auto& slot = *pending[i];
+        const auto name = names[i].text(0, 128);
+        if (!name) {
+            slot.state = SlotState::Unreadable;
+            continue;
+        }
+        slot.entity.designer_name = *name;
+        slot.entity.kind = classify_name(*name);
+        slot.state = slot.entity.kind == EntityKind::Unknown ? SlotState::Unknown : SlotState::Classified;
     }
-    slot.entity.designer_name = *name;
-    slot.entity.kind = classify_name(*name);
-    slot.state = slot.entity.kind == EntityKind::Unknown ? SlotState::Unknown : SlotState::Classified;
 }
 void Directory::resolve_player_aliases(memory::IReadChannel& channel) {
     namespace controller = offsets::schema::CCSPlayerController;
+    struct Owner {
+        const EntityRef& ref;
+        memory::Fields fields;
+    };
+    std::vector<Owner> owners;
     for (const auto& owner : slots) {
         if (owner.entity.kind != EntityKind::Controller || owner.state != SlotState::Classified)
             continue;
-        const memory::Fields fields(channel, owner.entity.address,
-                                    {memory::field<std::uint32_t>(controller::m_hPlayerPawn),
-                                     memory::field<std::uint32_t>(controller::m_hObserverPawn)});
-        auto resolve_alias = [&](std::size_t offset, EntityKind kind, std::string_view alias) {
-            const auto handle = fields.get<std::uint32_t>(offset);
+        owners.push_back({owner.entity, memory::Fields(owner.entity.address,
+                                                       {memory::field<std::uint32_t>(controller::m_hPlayerPawn),
+                                                        memory::field<std::uint32_t>(controller::m_hObserverPawn)})});
+    }
+    std::vector<memory::Fields*> fields;
+    for (auto& owner : owners)
+        fields.push_back(&owner.fields);
+    memory::Fields::read_many(channel, fields);
+    struct Alias {
+        Alias(const EntityRef& owner, const EntityRef& target, std::size_t offset, EntityKind kind)
+            : owner(owner), target(target), offset(offset), kind(kind),
+              links(target.address,
+                    {memory::field<std::uint32_t>(offsets::schema::C_BasePlayerPawn::m_hController),
+                     memory::field<std::uint32_t>(offsets::schema::C_BasePlayerPawn::m_hDefaultController)}),
+              owner_proof(owner), target_proof(target) {}
+        const EntityRef& owner;
+        const EntityRef& target;
+        std::size_t offset;
+        EntityKind kind;
+        memory::Fields links;
+        IdentityObservation owner_proof, target_proof;
+        std::uint32_t closing_handle{};
+        memory::ReadPlan::Ticket ticket{};
+    };
+    std::vector<Alias> aliases;
+    for (const auto& owner : owners) {
+        auto add = [&](std::size_t offset, EntityKind kind, std::string_view alias) {
+            const auto handle = owner.fields.get<std::uint32_t>(offset);
             const auto* target = handle ? resolve(*handle) : nullptr;
-            if (!target || target->kind != EntityKind::Unknown || target->designer_name != alias)
-                return;
-            // 某些练习模式复用 precache 名称。必须同时确认正向完整句柄和反向控制器，不能按名称放行模型。
-            const memory::Fields back_link(
-                channel, target->address,
-                {memory::field<std::uint32_t>(offsets::schema::C_BasePlayerPawn::m_hController),
-                 memory::field<std::uint32_t>(offsets::schema::C_BasePlayerPawn::m_hDefaultController)});
-            const auto expected = std::optional(owner.entity.handle);
-            if ((back_link.get<std::uint32_t>(offsets::schema::C_BasePlayerPawn::m_hController) != expected &&
-                 back_link.get<std::uint32_t>(offsets::schema::C_BasePlayerPawn::m_hDefaultController) != expected) ||
-                memory::read_value<std::uint32_t>(channel, owner.entity.address + offset) != handle ||
-                !verify(channel, owner.entity) || !verify(channel, *target))
-                return;
-            auto& slot = slots[target->index];
-            slot.entity.kind = kind;
-            slot.state = SlotState::Classified;
+            if (target && target->kind == EntityKind::Unknown && target->designer_name == alias)
+                aliases.emplace_back(owner.ref, *target, offset, kind);
         };
-        resolve_alias(controller::m_hPlayerPawn, EntityKind::PlayerPawn, "c_cs_player_for_precache");
-        resolve_alias(controller::m_hObserverPawn, EntityKind::ObserverPawn, "c_cs_observer_for_precache");
+        add(controller::m_hPlayerPawn, EntityKind::PlayerPawn, "c_cs_player_for_precache");
+        add(controller::m_hObserverPawn, EntityKind::ObserverPawn, "c_cs_observer_for_precache");
+    }
+    fields.clear();
+    for (auto& alias : aliases)
+        fields.push_back(&alias.links);
+    memory::Fields::read_many(channel, fields);
+    memory::ReadPlan closing;
+    for (auto& alias : aliases) {
+        alias.ticket = closing.add(alias.owner.address + alias.offset, alias.closing_handle);
+        alias.owner_proof.schedule(closing);
+        alias.target_proof.schedule(closing);
+    }
+    closing.execute(channel);
+    for (const auto& alias : aliases) {
+        // 某些练习模式复用 precache 名称。正向完整句柄、反向控制器和两端身份必须同时通过。
+        const auto expected = std::optional(alias.owner.handle);
+        if ((alias.links.get<std::uint32_t>(offsets::schema::C_BasePlayerPawn::m_hController) != expected &&
+             alias.links.get<std::uint32_t>(offsets::schema::C_BasePlayerPawn::m_hDefaultController) != expected) ||
+            !closing.complete(alias.ticket) || alias.closing_handle != alias.target.handle ||
+            !alias.owner_proof.matches(closing) || !alias.target_proof.matches(closing))
+            continue;
+        auto& slot = slots[alias.target.index];
+        if (slot.entity.kind == EntityKind::Unknown) {
+            slot.entity.kind = alias.kind;
+            slot.state = SlotState::Classified;
+        }
     }
 }
 const EntityRef* Directory::resolve(std::uint32_t handle) const noexcept {
@@ -175,17 +234,27 @@ const EntityRef* Directory::find_address(memory::Address address) const noexcept
     return nullptr;
 }
 bool Directory::verify(memory::IReadChannel& channel, const EntityRef& ref) const {
-    memory::Address identity = 0, instance = 0, designer = 0;
-    std::uint32_t handle = 0;
-    std::array<memory::ReadRequest, 4> requests{
-        {{ref.address + offsets::schema::CEntityInstance::m_pEntity, &identity, sizeof(identity)},
-         {ref.identity, &instance, sizeof(instance)},
-         {ref.identity + layout::identity_handle, &handle, sizeof(handle)},
-         {ref.identity + offsets::schema::CEntityIdentity::m_designerName, &designer, sizeof(designer)}}};
-    channel.read_many(requests);
-    return std::all_of(requests.begin(), requests.end(), [](const auto& r) { return r.result.complete(r.bytes); }) &&
-           identity == ref.identity && instance == ref.address && handle == ref.handle &&
-           designer == ref.designer_pointer;
+    IdentityObservation observation(ref);
+    memory::ReadPlan plan(4);
+    observation.schedule(plan);
+    plan.execute(channel);
+    return observation.matches(plan);
+}
+std::vector<std::uint8_t> Directory::verify_many(memory::IReadChannel& channel,
+                                                 std::span<const EntityRef* const> refs) const {
+    std::vector<IdentityObservation> observations;
+    observations.reserve(refs.size());
+    for (const auto* ref : refs)
+        observations.emplace_back(*ref);
+    memory::ReadPlan plan(refs.size() * 4);
+    for (auto& observation : observations)
+        observation.schedule(plan);
+    plan.execute(channel);
+    std::vector<std::uint8_t> results;
+    results.reserve(refs.size());
+    for (const auto& observation : observations)
+        results.push_back(observation.matches(plan));
+    return results;
 }
 bool Directory::verify_root(memory::IReadChannel& channel, const Context& context) const {
     return memory::read_value<memory::Address>(channel, context.client.base + offsets::client::dwEntityList) ==

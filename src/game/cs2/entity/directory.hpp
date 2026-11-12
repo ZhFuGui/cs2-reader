@@ -2,6 +2,7 @@
 #include "game/cs2/session/context.hpp"
 #include "model/snapshot.hpp"
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 namespace cs2::game {
@@ -36,10 +37,12 @@ class Directory {
     std::vector<Slot> slots;
     void discover(memory::IReadChannel&, const Context&);
     void classify(memory::IReadChannel&, std::size_t index);
+    void classify_many(memory::IReadChannel&, std::span<const std::size_t> indices);
     void resolve_player_aliases(memory::IReadChannel&);
     [[nodiscard]] const EntityRef* resolve(std::uint32_t handle) const noexcept;
     [[nodiscard]] const EntityRef* find_address(memory::Address) const noexcept;
     [[nodiscard]] bool verify(memory::IReadChannel&, const EntityRef&) const;
+    [[nodiscard]] std::vector<std::uint8_t> verify_many(memory::IReadChannel&, std::span<const EntityRef* const>) const;
     [[nodiscard]] bool verify_root(memory::IReadChannel&, const Context&) const;
     [[nodiscard]] model::Coverage coverage() const;
 };
