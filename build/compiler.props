@@ -37,7 +37,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <AdditionalOptions>/Brepro %(AdditionalOptions)</AdditionalOptions>
       <SubSystem>Windows</SubSystem>
-      <EntryPointSymbol>wWinMainCRTStartup</EntryPointSymbol>
+      <EntryPointSymbol Condition="'$(ReaderAsDll)'!='true'">wWinMainCRTStartup</EntryPointSymbol>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">

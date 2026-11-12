@@ -61,6 +61,9 @@
     <ClCompile Include="$(ReaderRoot)src\app\main.cpp">
       <Filter>app</Filter>
     </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\app\dll_entry.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\app\options.cpp">
       <Filter>app</Filter>
     </ClCompile>
