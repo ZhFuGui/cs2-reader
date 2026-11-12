@@ -23,6 +23,9 @@
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(ReaderAsDll)'=='true'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
@@ -35,6 +38,18 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>ws2_32.lib;bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(ReaderAsDll)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>CS2_READER_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>CS2_READER_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <ProgramDatabaseFile>$(OutDir)$(TargetName).dll.pdb</ProgramDatabaseFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup Label="ProjectConfigurations">
@@ -67,7 +82,12 @@
     <ClInclude Include="$(ReaderRoot)src\app\application.hpp" />
     <ClCompile Include="$(ReaderRoot)src\app\composition.cpp" />
     <ClInclude Include="$(ReaderRoot)src\app\composition.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\app\main.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\app\main.cpp">
+      <ExcludedFromBuild Condition="'$(ReaderAsDll)'=='true'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\app\dll_entry.cpp">
+      <ExcludedFromBuild Condition="'$(ReaderAsDll)'!='true'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\app\options.cpp" />
     <ClInclude Include="$(ReaderRoot)src\app\options.hpp" />
     <ClCompile Include="$(ReaderRoot)src\diagnostics\snapshot_sink.cpp" />
@@ -144,18 +164,6 @@
     <ClInclude Include="$(ReaderRoot)src\model\types.hpp" />
     <ClInclude Include="$(ReaderRoot)src\model\weapon.hpp" />
     <ClInclude Include="$(ReaderRoot)src\model\world.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\backend.cpp">
-      <ObjectFileName>$(IntDir)src_backends_r3_backend.obj</ObjectFileName>
-    </ClCompile>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\backend.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\channel.cpp">
-      <ObjectFileName>$(IntDir)src_backends_r3_channel.obj</ObjectFileName>
-    </ClCompile>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\channel.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\session.cpp">
-      <ObjectFileName>$(IntDir)src_backends_r3_session.obj</ObjectFileName>
-    </ClCompile>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\session.hpp" />
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\backend.cpp">
       <ObjectFileName>$(IntDir)src_backends_hyperv_backend.obj</ObjectFileName>
     </ClCompile>
@@ -172,6 +180,10 @@
     <MASM Include="$(ReaderRoot)src\backends\hyperv\native\invoke.asm" />
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.cpp" />
     <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_image.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_image.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_locator.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_locator.hpp" />
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\session.cpp">
       <ObjectFileName>$(IntDir)src_backends_hyperv_session.obj</ObjectFileName>
     </ClCompile>
@@ -227,6 +239,17 @@
   </Target>
   <!-- Release 不产生符号；历史上遗留的 .pdb 必须从产物目录清掉，否则等于随二进制附带完整符号表。 -->
   <Target Name="RemoveReleaseSymbols" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
-    <Delete Files="$(OutDir)$(TargetName).pdb" ContinueOnError="true" />
+    <Delete Files="$(OutDir)$(TargetName).pdb;$(OutDir)$(TargetName).dll.pdb" ContinueOnError="true" />
+  </Target>
+  <!-- 同一个项目分别链接 EXE 和 DLL；只改变形态，中间文件各自独立。 -->
+  <Target Name="BuildReaderDll" AfterTargets="Build"
+          Condition="'$(ReaderAsDll)'!='true' and '$(DesignTimeBuild)'!='true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Build"
+             Properties="ReaderAsDll=true;Configuration=$(Configuration);Platform=$(Platform)" />
+  </Target>
+  <Target Name="CleanReaderDll" BeforeTargets="Clean"
+          Condition="'$(ReaderAsDll)'!='true' and '$(DesignTimeBuild)'!='true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Clean"
+             Properties="ReaderAsDll=true;Configuration=$(Configuration);Platform=$(Platform)" />
   </Target>
 </Project>

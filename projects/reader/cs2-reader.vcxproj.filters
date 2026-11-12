@@ -61,6 +61,9 @@
     <ClCompile Include="$(ReaderRoot)src\app\main.cpp">
       <Filter>app</Filter>
     </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\app\dll_entry.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\app\options.cpp">
       <Filter>app</Filter>
     </ClCompile>
@@ -192,9 +195,6 @@
     <Filter Include="backends">
       <UniqueIdentifier>{03F547C6-798E-498D-A010-B6A65DF77262}</UniqueIdentifier>
     </Filter>
-    <Filter Include="backends\r3">
-      <UniqueIdentifier>{3EE31BD4-9874-4A5E-A128-B8AC6E6304D2}</UniqueIdentifier>
-    </Filter>
     <Filter Include="backends\hyperv">
       <UniqueIdentifier>{08F4CB80-B709-416A-B649-69167C518C19}</UniqueIdentifier>
     </Filter>
@@ -275,15 +275,6 @@
     <ClInclude Include="$(ReaderRoot)src\model\world.hpp">
       <Filter>model</Filter>
     </ClInclude>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\backend.hpp">
-      <Filter>backends\r3</Filter>
-    </ClInclude>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\channel.hpp">
-      <Filter>backends\r3</Filter>
-    </ClInclude>
-    <ClInclude Include="$(ReaderRoot)src\backends\r3\session.hpp">
-      <Filter>backends\r3</Filter>
-    </ClInclude>
     <ClInclude Include="$(ReaderRoot)src\backends\hyperv\backend.hpp">
       <Filter>backends\hyperv</Filter>
     </ClInclude>
@@ -303,6 +294,12 @@
       <Filter>backends\hyperv\native</Filter>
     </ClInclude>
     <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.hpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_image.hpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\backends\hyperv\native\kernel_locator.hpp">
       <Filter>backends\hyperv\native</Filter>
     </ClInclude>
     <ClInclude Include="$(ReaderRoot)src\backends\hyperv\session.hpp">
@@ -346,15 +343,6 @@
     <ClCompile Include="$(ReaderRoot)src\memory\module_walker.cpp">
       <Filter>memory</Filter>
     </ClCompile>
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\backend.cpp">
-      <Filter>backends\r3</Filter>
-    </ClCompile>
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\channel.cpp">
-      <Filter>backends\r3</Filter>
-    </ClCompile>
-    <ClCompile Include="$(ReaderRoot)src\backends\r3\session.cpp">
-      <Filter>backends\r3</Filter>
-    </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\backend.cpp">
       <Filter>backends\hyperv</Filter>
     </ClCompile>
@@ -365,6 +353,12 @@
       <Filter>backends\hyperv\native</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_binding.cpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_image.cpp">
+      <Filter>backends\hyperv\native</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\backends\hyperv\native\kernel_locator.cpp">
       <Filter>backends\hyperv\native</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\backends\hyperv\session.cpp">
