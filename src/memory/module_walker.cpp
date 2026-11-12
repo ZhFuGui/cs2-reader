@@ -55,9 +55,13 @@ std::vector<Module> read_modules(IReadChannel& channel, Address peb) {
         if (mz != 0x5A4D || offset < 0x40 || static_cast<std::uint32_t>(offset) > size || size - offset < 0x78)
             throw ReadUnavailable("Invalid module DOS image");
         const auto nt = base + offset;
-        if (required<std::uint32_t>(channel, nt) != 0x4550 || required<std::uint16_t>(channel, nt + 4) != 0x8664 ||
-            required<std::uint16_t>(channel, nt + 0x18) != 0x20B || required<std::uint32_t>(channel, nt + 0x50) != size)
-            throw ReadUnavailable("Module is not a consistent x64 PE image");
+        if (required<std::uint32_t>(channel, nt) != 0x4550)
+            throw ReadUnavailable("Invalid module PE signature");
+        module.machine = required<std::uint16_t>(channel, nt + 4);
+        module.optional_magic = required<std::uint16_t>(channel, nt + 0x18);
+        if ((module.optional_magic != 0x10B && module.optional_magic != 0x20B) ||
+            required<std::uint32_t>(channel, nt + 0x50) != size)
+            throw ReadUnavailable("Module is not a consistent PE image");
         module.timestamp = required<std::uint32_t>(channel, nt + 8);
         if (required<Address>(channel, link) != copy.template operator()<Address>(0))
             throw ReadUnavailable("Loader entry changed during enumeration");

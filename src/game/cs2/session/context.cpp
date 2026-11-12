@@ -28,6 +28,9 @@ Context open_context(memory::IReadChannel& channel, const memory::ISession& sess
     }
     if (!context.client.base || !context.engine.base)
         throw ContextPending(OBF("Waiting for the required game modules to load"));
+    // 通用枚举允许 PE32 资源映像；只有实际使用 CS2 偏移的代码模块必须为 x64。
+    if (!context.client.is_x64() || !context.engine.is_x64())
+        throw std::runtime_error("Required game modules must be x64 PE images");
     if (context.client.size <= offsets::client::dwEntityList + sizeof(memory::Address) ||
         context.engine.size <= offsets::engine::dwBuildNumber + sizeof(std::uint32_t))
         throw std::runtime_error("Offset profile does not fit the target modules");

@@ -15,6 +15,9 @@ struct Module {
     std::u16string name;
     Address base = 0;
     std::uint32_t size = 0, timestamp = 0;
+    // 记录映像自身格式；进程内的资源映像不必与目标代码模块具有相同架构。
+    std::uint16_t machine = 0, optional_magic = 0;
+    [[nodiscard]] bool is_x64() const noexcept { return machine == 0x8664 && optional_magic == 0x20B; }
 };
 enum class AccessMode { ReadOnly, ReadWrite };
 enum class ProcessState { Current, Exited, Changed, Unreadable };
