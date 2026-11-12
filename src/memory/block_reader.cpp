@@ -104,9 +104,11 @@ Fields::Fields(Address object, std::span<const Field> fields, std::span<const Fi
     values_.reserve(fields.size() + additional.size());
     const auto append = [&](std::span<const Field> source) {
         for (auto f : source) {
-            if (!f.size || f.offset > std::numeric_limits<std::size_t>::max() - f.size ||
-                object > std::numeric_limits<Address>::max() - f.offset || !user_range(object + f.offset, f.size))
-                throw std::runtime_error("Invalid field range");
+            if (!f.size || f.offset > std::numeric_limits<std::size_t>::max() - f.size)
+                throw std::invalid_argument("Invalid field layout");
+            // 目标提供的地址属于运行态数据：越界字段缺失，不让一个坏指针拒绝整帧。
+            if (object > std::numeric_limits<Address>::max() - f.offset || !user_range(object + f.offset, f.size))
+                continue;
             values_.push_back({f.offset, f.size});
         }
     };
@@ -135,22 +137,34 @@ Fields::Fields(Address object, std::span<const Field> fields, std::span<const Fi
 }
 void Fields::read_many(IReadChannel& channel, std::span<Fields* const> objects) {
     ReadPlan opening;
-    std::vector<ReadPlan::Ticket> tickets;
-    for (auto* fields : objects) {
-        if (!fields->clusters_.empty()) {
-            const auto& last = fields->clusters_.back();
-            fields->data_.resize(last.offset + last.size);
-        }
-        for (auto& value : fields->values_)
-            value.valid = false;
-        for (const auto& cluster : fields->clusters_) {
-            for (auto i = cluster.first; i < cluster.last; ++i)
-                fields->values_[i].storage = cluster.offset + fields->values_[i].offset - cluster.begin;
-            tickets.push_back(
-                opening.add(fields->object_ + cluster.begin, fields->data_.data() + cluster.offset, cluster.size));
-        }
-    }
+    std::vector<PlannedRead> items;
+    items.reserve(objects.size());
+    for (auto* fields : objects)
+        items.push_back(fields->schedule(opening));
     opening.execute(channel);
+    finish_many(channel, opening, items);
+}
+Fields::PlannedRead Fields::schedule(ReadPlan& plan, std::optional<ReadPlan::Ticket> parent) {
+    if (!clusters_.empty()) {
+        const auto& last = clusters_.back();
+        data_.resize(last.offset + last.size);
+    }
+    for (auto& value : values_)
+        value.valid = false;
+    ReadPlan::Ticket first{};
+    for (std::size_t i = 0; i < clusters_.size(); ++i) {
+        const auto& cluster = clusters_[i];
+        for (auto j = cluster.first; j < cluster.last; ++j)
+            values_[j].storage = cluster.offset + values_[j].offset - cluster.begin;
+        const auto ticket = parent ? plan.add_from(*parent, static_cast<std::int64_t>(cluster.begin),
+                                                   data_.data() + cluster.offset, cluster.size)
+                                   : plan.add(object_ + cluster.begin, data_.data() + cluster.offset, cluster.size);
+        if (!i)
+            first = ticket;
+    }
+    return {*this, first};
+}
+void Fields::finish_many(IReadChannel& channel, const ReadPlan& opening, std::span<const PlannedRead> items) {
     struct Retry {
         Fields* fields;
         std::size_t index;
@@ -158,19 +172,23 @@ void Fields::read_many(IReadChannel& channel, std::span<Fields* const> objects) 
     };
     ReadPlan fallback;
     std::vector<Retry> retries;
-    std::size_t cursor = 0;
-    for (auto* fields : objects) {
+    for (const auto& item : items) {
+        auto* fields = &item.fields;
         std::vector<std::size_t> indices;
         auto fallback_end = fields->data_.size();
+        auto cursor = item.first;
         for (const auto& cluster : fields->clusters_) {
-            const auto ticket = tickets[cursor++];
+            const auto ticket = cursor++;
+            if (opening.source_address(ticket) != std::optional(fields->object_ + cluster.begin))
+                continue;
             const bool complete = opening.complete(ticket);
+            const auto status = opening.result(ticket).status;
             for (auto i = cluster.first; i < cluster.last; ++i) {
                 auto& value = fields->values_[i];
                 if (complete) {
                     value.valid = true;
                 } else if (cluster.last - cluster.first > 1 &&
-                           opening.result(ticket).status != TransferStatus::BackendFailure) {
+                           (status == TransferStatus::Unavailable || status == TransferStatus::Partial)) {
                     if (value.size > std::numeric_limits<std::size_t>::max() - fallback_end)
                         throw std::length_error("Field fallback buffer overflow");
                     // 失败回退使用不重叠的独立区域，包含重叠或重复字段时也满足批量 ABI。

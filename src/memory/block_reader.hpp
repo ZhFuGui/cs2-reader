@@ -10,9 +10,7 @@ namespace cs2::memory {
 struct Field {
     std::size_t offset, size;
 };
-template <class T> constexpr Field field(std::size_t offset) noexcept {
-    return {offset, sizeof(T)};
-}
+template <class T> constexpr Field field(std::size_t offset) noexcept { return {offset, sizeof(T)}; }
 // 每个成功区间都明确标记；未读字节即使缓冲中是零，也不能被解释成字段值。
 class Block {
   public:
@@ -77,6 +75,14 @@ class Fields {
     std::optional<std::string> text(std::size_t offset) const;
     // 各指针非空且互不重复；失败字段不会沿用本实例上一次读取的有效性。
     static void read_many(IReadChannel&, std::span<Fields* const>);
+    struct PlannedRead {
+        Fields& fields;
+        ReadPlan::Ticket first;
+    };
+    // 布局以已观察到的对象地址建立；依赖指针变化时不认可结果，也不向旧地址回退。
+    // schedule 至 finish_many 期间保持实例和缓冲稳定，不能移动或重复 schedule。
+    PlannedRead schedule(ReadPlan&, std::optional<ReadPlan::Ticket> parent = {});
+    static void finish_many(IReadChannel&, const ReadPlan&, std::span<const PlannedRead>);
 
   private:
     struct Value {
