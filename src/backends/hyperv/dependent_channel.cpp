@@ -1,18 +1,26 @@
 #include "backends/hyperv/channel.hpp"
 #include "backends/hyperv/native/dependent.hpp"
+#include "backends/hyperv/native/hypercall.hpp"
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <new>
 
 namespace cs2::backends::hyperv {
 void ReadChannel::read_dependent(std::span<memory::DependentRead> requests) noexcept {
     using namespace native::abi;
-    const auto valid = memory::valid_dependent_reads(requests);
+    auto initial = memory::TransferStatus::Unavailable;
+    try {
+        if (!memory::valid_dependent_reads(requests))
+            initial = memory::TransferStatus::InvalidRange;
+    } catch (const std::bad_alloc&) {
+        initial = memory::TransferStatus::BackendFailure;
+    }
     for (auto& r : requests) {
         r.pointer = 0;
-        r.result = {valid ? memory::TransferStatus::Unavailable : memory::TransferStatus::InvalidRange};
+        r.result = {initial};
     }
-    if (!valid)
+    if (initial != memory::TransferStatus::Unavailable)
         return;
     std::array<DependentItem, dependent_max_items> items{};
     std::array<std::size_t, dependent_max_items> indices{};
@@ -65,9 +73,15 @@ void ReadChannel::read_dependent(std::span<memory::DependentRead> requests) noex
         auto& r = requests[i];
         if (!r.bytes || r.bytes > dependent_max_bytes) {
             flush();
-            if (const auto address = resolved(r))
-                r.result = r.bytes ? read(*address, r.destination, r.bytes)
-                                   : memory::TransferResult{memory::TransferStatus::Complete};
+            if (const auto address = resolved(r)) {
+                // 计划已统一核验 canonical 来源和用户态输出；大小变化不改变地址策略。
+                const auto transferred = r.bytes ? native::read(binding_->caller_cr3, binding_->address_space.cr3,
+                                                                *address, r.destination, r.bytes, &counters_)
+                                                 : 0;
+                r.result = {transferred == r.bytes ? memory::TransferStatus::Complete
+                                                   : memory::TransferStatus::Unavailable,
+                            transferred};
+            }
             continue; // 超大连续复制保留现有单范围接口，不切碎、不截断。
         }
         if (count == items.size() || r.bytes > dependent_max_bytes - bytes) {

@@ -20,5 +20,6 @@ struct DependentRead {
 bool canonical_range(Address, std::size_t) noexcept;
 std::optional<Address> relative_address(Address, std::uint64_t offset, std::size_t bytes) noexcept;
 // 只检查拓扑、范围和缓冲所有权，不读取目标内存，也不设置 ABI 数量限制。
-bool valid_dependent_reads(std::span<const DependentRead>) noexcept;
+// 大计划的排序暂存可能抛出 bad_alloc；通道边界将其报告为 BackendFailure。
+bool valid_dependent_reads(std::span<const DependentRead>);
 } // namespace cs2::memory
