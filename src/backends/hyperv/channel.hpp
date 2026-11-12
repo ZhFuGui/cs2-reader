@@ -7,6 +7,7 @@ class ReadChannel final : public memory::IReadChannel {
     explicit ReadChannel(std::shared_ptr<const Binding> binding) : binding_(std::move(binding)) {}
     memory::TransferResult read(memory::Address, void*, std::size_t) noexcept override;
     void read_many(std::span<memory::ReadRequest>) noexcept override;
+    void read_dependent(std::span<memory::DependentRead>) noexcept override;
     memory::ReadMetrics take_backend_metrics() noexcept override;
 
   private:

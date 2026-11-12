@@ -1,5 +1,6 @@
 #include "backends/hyperv/backend.hpp"
 #include "backends/hyperv/native/batch.hpp"
+#include "backends/hyperv/native/dependent.hpp"
 #include "backends/hyperv/native/hypercall.hpp"
 #include "backends/hyperv/session.hpp"
 #include <stdexcept>
@@ -25,9 +26,11 @@ class HyperVBackend final : public memory::IBackend {
         initialize();
         return hyperv::native::discover_process(*layout_, image_name, caller_cr3_);
     }
+
   private:
     void initialize() {
-        if (layout_) return;
+        if (layout_)
+            return;
         const auto caller_cr3 = hyperv::native::probe_address_space();
         if (!caller_cr3)
             throw std::runtime_error("hypervisor handshake or self-read failed; no fallback path");
@@ -35,6 +38,8 @@ class HyperVBackend final : public memory::IBackend {
             throw std::runtime_error("hypervisor batch self-read failed; batch-capable backend required");
         if (!hyperv::native::probe_list_find(caller_cr3))
             throw std::runtime_error("hypervisor list-find self-read failed; operation 12 required");
+        if (!hyperv::native::probe_dependent(caller_cr3))
+            throw std::runtime_error("hypervisor dependent self-read failed; operation 13 required");
         layout_ = hyperv::native::resolve_kernel_layout(caller_cr3);
         caller_cr3_ = caller_cr3;
     }

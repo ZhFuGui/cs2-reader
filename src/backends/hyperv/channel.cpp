@@ -70,8 +70,10 @@ memory::ReadMetrics ReadChannel::take_backend_metrics() noexcept {
     const auto counters = std::exchange(counters_, {});
     memory::ReadMetrics result;
     result.hypercall_single = counters.single;
-    result.hypercall_batch = counters.batch;
-    result.batch_items = counters.items;
+    result.hypercall_batch = counters.batch + counters.dependent;
+    result.batch_items = counters.items + counters.dependent_items;
+    result.hypercall_dependent = counters.dependent;
+    result.dependent_items = counters.dependent_items;
     result.batch_errors = counters.errors;
     result.batch_item_splits = counters.item_splits;
     result.batch_byte_splits = counters.byte_splits;

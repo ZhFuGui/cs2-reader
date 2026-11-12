@@ -10,7 +10,14 @@ namespace cs2::backends::hyperv::native::abi {
 inline constexpr std::uint64_t allowed_key = 0x8A3B55C7927ULL;
 inline constexpr std::uint64_t test_response = 0x1337;
 enum class Operation : std::uint16_t {
-    Test = 0, CurrentCr3 = 1, PhysicalCopy = 2, VirtualCopy = 3, TranslateVa = 4, ReadBatch = 11, FindList = 12
+    Test = 0,
+    CurrentCr3 = 1,
+    PhysicalCopy = 2,
+    VirtualCopy = 3,
+    TranslateVa = 4,
+    ReadBatch = 11,
+    FindList = 12,
+    ReadDependent = 13
 };
 
 inline constexpr std::size_t batch_max_items = 64, batch_max_bytes = 64 * 1024;
@@ -21,6 +28,37 @@ static_assert(std::is_standard_layout_v<BatchItem> && std::is_trivially_copyable
 static_assert(sizeof(BatchItem) == 24 && alignof(BatchItem) == 8);
 static_assert(offsetof(BatchItem, source_va) == 0 && offsetof(BatchItem, destination_va) == 8 &&
               offsetof(BatchItem, size) == 16);
+
+// 对照 shared/dependent.hpp；指针项也计入 64KiB 总读取预算。
+inline constexpr std::size_t dependent_max_items = 64, dependent_max_bytes = 64 * 1024;
+inline constexpr std::uint16_t dependent_direct = UINT16_MAX;
+enum class DependentKind : std::uint8_t { Pointer = 1, Copy = 2 };
+enum class DependentStatus : std::uint8_t {
+    Unused = 0,
+    Success = 1,
+    InvalidAddress = 2,
+    TransferFailed = 3,
+    DependencyFailed = 4
+};
+struct DependentItem {
+    std::uint64_t address, destination_va;
+    std::uint32_t size;
+    std::uint16_t parent;
+    DependentKind kind;
+    std::uint8_t reserved;
+};
+struct DependentResult {
+    std::uint64_t pointers[dependent_max_items];
+    DependentStatus status[dependent_max_items];
+};
+static_assert(std::is_standard_layout_v<DependentItem> && std::is_trivially_copyable_v<DependentItem>);
+static_assert(sizeof(DependentItem) == 24 && alignof(DependentItem) == 8);
+static_assert(offsetof(DependentItem, destination_va) == 8 && offsetof(DependentItem, size) == 16 &&
+              offsetof(DependentItem, parent) == 20 && offsetof(DependentItem, kind) == 22 &&
+              offsetof(DependentItem, reserved) == 23);
+static_assert(std::is_standard_layout_v<DependentResult> && std::is_trivially_copyable_v<DependentResult>);
+static_assert(sizeof(DependentResult) == 576 && alignof(DependentResult) == 8 &&
+              offsetof(DependentResult, status) == 512);
 
 // 对照上游 shared/list_find.hpp；版本及固定布局不可随本地命名改变。
 inline constexpr std::uint32_t list_version = 1, list_default_nodes = 1024, list_max_nodes = 4096;

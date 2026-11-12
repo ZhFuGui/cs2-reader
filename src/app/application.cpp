@@ -224,6 +224,8 @@ int run(const Options& options, std::ostream& log, bool console_controls) {
                               << " read_failures=" << snapshot.reads.failures
                               << " hc_single=" << snapshot.reads.hypercall_single << " hc_batch=" << snapshot.reads.hypercall_batch
                               << " batch_items=" << snapshot.reads.batch_items << " batch_errors=" << snapshot.reads.batch_errors
+                              << " hc_dependent=" << snapshot.reads.hypercall_dependent
+                              << " dependent_items=" << snapshot.reads.dependent_items
                               << " item_splits=" << snapshot.reads.batch_item_splits << " byte_splits=" << snapshot.reads.batch_byte_splits
                               << " capture_ms=" << elapsed_ms
                               << " missed=" << missed << '\n';

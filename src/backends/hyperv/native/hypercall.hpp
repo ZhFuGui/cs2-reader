@@ -7,6 +7,7 @@ namespace cs2::backends::hyperv::native {
 struct ReadCounters {
     std::uint64_t single = 0, batch = 0, items = 0, errors = 0;
     std::uint64_t item_splits = 0, byte_splits = 0;
+    std::uint64_t dependent = 0, dependent_items = 0;
 };
 // 握手与本进程自读成功后返回调用方 CR3；不可用或协议不匹配返回 0。
 std::uint64_t probe_address_space() noexcept;
