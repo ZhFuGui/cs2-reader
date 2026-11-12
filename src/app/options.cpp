@@ -4,7 +4,6 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
-#include <thread>
 namespace cs2::app {
 namespace {
 std::uint64_t integer(const std::wstring& input) {
@@ -26,7 +25,6 @@ double number(const std::wstring& input) {
 } // namespace
 Options parse_options(int argc, wchar_t** argv) {
     Options options;
-    options.workers = std::max<std::size_t>(1, std::min<std::size_t>(4, std::thread::hardware_concurrency()));
     for (int i = 1; i < argc; ++i) {
         const std::wstring key = argv[i];
         auto next = [&]() -> std::wstring {
@@ -103,7 +101,7 @@ Options parse_options(int argc, wchar_t** argv) {
 }
 void print_usage() {
 #if !defined(CS2_STEALTH)
-    std::cout << "reader [--pid N] [--hz 90] [--workers 4]\n"
+    std::cout << "reader [--pid N] [--hz 90] [--workers 2]\n"
                  "           [--once | --samples N] [--duration SECONDS] [--wait-seconds N] [--output FILE.jsonl]\n"
                  "           [--no-bones] [--read-write] [--no-service] [--port 13202] [--max-clients 8]\n"
                  "           [--bind 127.0.0.1 | --bind LAN_IPV4 | --bind 0.0.0.0] [--stop-event NAME] [--log-file]\n"

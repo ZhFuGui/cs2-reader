@@ -16,7 +16,7 @@ msbuild cs2-reader.sln /m /p:Configuration=Release /p:Platform=x64
 .\bin\x64\Release\cs2-reader.exe --bind 0.0.0.0 --port 13202
 ```
 
-hyper-mem 是唯一后端，自动寻找目标进程，默认只读；不接受 `--backend` 选项。偏移直接使用 `output`，目标 build 不匹配时拒绝采样。
+hyper-mem 是唯一后端，自动寻找目标进程，默认只读；不接受 `--backend` 选项。默认使用 2 个采集 worker，可用 `--workers N` 覆盖。偏移直接使用 `output`，目标 build 不匹配时拒绝采样。
 
 原生进程快照首次探测长度后预留余量并复用缓冲，只在首次发现、候选出现或绑定失效时刷新。已绑定身份由 hypervisor 读取 PID、CreateTime 和退出标志核验；等待游戏时通过操作 12 查找候选，无需 Windows 进程通知 API。首次正常需要一次长度查询加一次快照查询，稳态不再定时枚举进程。
 

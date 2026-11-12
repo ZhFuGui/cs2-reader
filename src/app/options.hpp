@@ -10,7 +10,7 @@ struct Options {
     std::optional<double> wait_seconds;
     std::optional<double> duration_seconds;
     std::uint64_t samples = 0;
-    std::size_t workers = 4;
+    std::size_t workers = 2;
     double hz = 90;
     bool bones = true, help = false;
     bool service = true;
