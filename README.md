@@ -4,7 +4,7 @@
 ![Windows x64](https://img.shields.io/badge/Windows-x64-0078D4)
 ![VS2022](https://img.shields.io/badge/Visual_Studio-2022-5C2D91)
 
-用 Visual Studio 2022 打开 `cs2-reader.sln`，选择 **Release / x64**，构建解决方案。需要 C++ 桌面开发工具与 Windows SDK；Hyper-V 后端另需 SDK Debugging Tools x64 和已加载的对应 hyperv-guest-memory（不兼容旧 hyper-reV ABI）。
+用 Visual Studio 2022 打开 `cs2-reader.sln`，选择 **Release / x64**，构建解决方案。需要 C++ 桌面开发工具、Windows SDK 和已加载的 hyperv-guest-memory（不兼容旧 hyper-reV ABI）。
 
 默认关闭预编译头，Release 使用 `/MT`，Debug 使用 `/MTd`。启动项目为 `cs2-reader`。
 
@@ -12,12 +12,12 @@ Release 无控制台、不生成 PDB，关闭未使用的 RTTI，并启用可复
 
 ```powershell
 msbuild cs2-reader.sln /m /p:Configuration=Release /p:Platform=x64
-.\bin\x64\Release\cs2-reader.exe --backend r3
-.\bin\x64\Release\cs2-reader.exe --backend hyperv
-.\bin\x64\Release\cs2-reader.exe --backend hyperv --bind 0.0.0.0 --port 13202
+.\bin\x64\Release\cs2-reader.exe
+.\bin\x64\Release\cs2-reader.exe --bind 0.0.0.0 --port 13202
 ```
 
-两种模式均自动寻找目标进程；模式在启动后固定。默认只读，`--help` 显示参数。偏移直接使用 `output`，目标 build 不匹配时拒绝采样。
+hyper-mem 是唯一后端，自动寻找目标进程，默认只读；不接受 `--backend` 选项。默认使用 2 个采集 worker，可用 `--workers N` 覆盖。偏移直接使用 `output`，目标 build 不匹配时拒绝采样。
+
 
 
 默认监听 `127.0.0.1`；`--bind` 可指定本机局域网 IPv4，或用 `0.0.0.0` 监听所有 IPv4 网卡。客户端填写 Reader 主机的局域网地址，使用相同的 TCP 端口和 v1 协议；跨机时间通过既有时钟往返映射。

@@ -5,13 +5,12 @@
 #include <string>
 namespace cs2::app {
 struct Options {
-    memory::BackendKind backend = memory::BackendKind::R3;
     memory::AccessMode access = memory::AccessMode::ReadOnly;
     std::optional<std::uint32_t> pid;
     std::optional<double> wait_seconds;
     std::optional<double> duration_seconds;
     std::uint64_t samples = 0;
-    std::size_t workers = 4;
+    std::size_t workers = 2;
     double hz = 90;
     bool bones = true, help = false;
     bool service = true;
