@@ -94,11 +94,11 @@
     <ClInclude Include="$(ReaderRoot)src\diagnostics\snapshot_sink.hpp" />
     <ClCompile Include="$(ReaderRoot)src\diagnostics\runtime_log.cpp" />
     <ClInclude Include="$(ReaderRoot)src\diagnostics\runtime_log.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\synchronization\json_snapshot.cpp" />
-    <ClInclude Include="$(ReaderRoot)src\synchronization\json_snapshot.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\diagnostics\snapshot_json.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\snapshot_json.hpp" />
     <ClInclude Include="$(ReaderRoot)src\platform\windows\native_api.hpp" />
     <ClInclude Include="$(ReaderRoot)src\platform\windows\process_catalog.hpp" />
-    <ClInclude Include="$(ReaderRoot)src\platform\windows\process_name.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\process_name.hpp" />
     <ClInclude Include="$(ReaderRoot)src\platform\windows\qpc_clock.hpp" />
     <ClInclude Include="$(ReaderRoot)src\platform\windows\unique_handle.hpp" />
   </ItemGroup>
@@ -129,8 +129,8 @@
   <ItemGroup>
     <ClInclude Include="$(ReaderRoot)src\capture\clock.hpp" />
     <ClInclude Include="$(ReaderRoot)src\capture\frequency_control.hpp" />
-    <ClCompile Include="$(ReaderRoot)src\capture\collector.cpp" />
-    <ClInclude Include="$(ReaderRoot)src\capture\collector.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\capture\collector.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\capture\collector.hpp" />
     <ClCompile Include="$(ReaderRoot)src\capture\worker_pool.cpp" />
     <ClInclude Include="$(ReaderRoot)src\capture\worker_pool.hpp" />
     <ClInclude Include="$(ReaderRoot)src\memory\read_plan.hpp" />
@@ -238,6 +238,29 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="$(ReaderRoot)resources\version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\app\outputs.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\app\outputs.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\capture\cadence.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\capture\source.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\diagnostics\capture_report.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\capture_report.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\obf.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\read_metrics.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\capture\factory.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\capture\factory.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\memory\process_catalog.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\model\source_status.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\platform\windows\process_catalog.cpp" />
+    <ClCompile Include="$(ReaderRoot)src\platform\windows\run_control.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\run_control.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\runtime\binding.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\runtime\binding.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\runtime\control.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\runtime\output.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\runtime\runner.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\runtime\runner.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="VerifyFrozenProtocol" BeforeTargets="ClCompile">

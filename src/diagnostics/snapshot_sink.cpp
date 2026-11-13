@@ -1,5 +1,5 @@
 #include "diagnostics/snapshot_sink.hpp"
-#include "synchronization/json_snapshot.hpp"
+#include "diagnostics/snapshot_json.hpp"
 #include <stdexcept>
 namespace cs2::diagnostics {
 SnapshotSink::SnapshotSink(const std::filesystem::path& path) {
@@ -48,7 +48,7 @@ void SnapshotSink::work() {
             latest_.reset();
         }
         try {
-            file_ << synchronization::snapshot_json(*snapshot) << '\n';
+            file_ << snapshot_json(*snapshot) << '\n';
             file_.flush();
             if (!file_)
                 throw std::runtime_error("Snapshot output I/O failed");

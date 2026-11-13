@@ -82,11 +82,11 @@
     <ClInclude Include="$(ReaderRoot)src\diagnostics\runtime_log.hpp">
       <Filter>diagnostics</Filter>
     </ClInclude>
-    <ClCompile Include="$(ReaderRoot)src\synchronization\json_snapshot.cpp">
-      <Filter>synchronization</Filter>
+    <ClCompile Include="$(ReaderRoot)src\diagnostics\snapshot_json.cpp">
+      <Filter>diagnostics</Filter>
     </ClCompile>
-    <ClInclude Include="$(ReaderRoot)src\synchronization\json_snapshot.hpp">
-      <Filter>synchronization</Filter>
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\snapshot_json.hpp">
+      <Filter>diagnostics</Filter>
     </ClInclude>
     <ClInclude Include="$(ReaderRoot)src\platform\windows\native_api.hpp">
       <Filter>platform\windows</Filter>
@@ -94,8 +94,8 @@
     <ClInclude Include="$(ReaderRoot)src\platform\windows\process_catalog.hpp">
       <Filter>platform\windows</Filter>
     </ClInclude>
-    <ClInclude Include="$(ReaderRoot)src\platform\windows\process_name.hpp">
-      <Filter>platform\windows</Filter>
+    <ClInclude Include="$(ReaderRoot)src\memory\process_name.hpp">
+      <Filter>memory</Filter>
     </ClInclude>
     <ClInclude Include="$(ReaderRoot)src\platform\windows\qpc_clock.hpp">
       <Filter>platform\windows</Filter>
@@ -206,8 +206,8 @@
     <ClInclude Include="$(ReaderRoot)src\capture\clock.hpp">
       <Filter>capture</Filter>
     </ClInclude>
-    <ClInclude Include="$(ReaderRoot)src\capture\collector.hpp">
-      <Filter>capture</Filter>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\capture\collector.hpp">
+      <Filter>game\cs2\capture</Filter>
     </ClInclude>
     <ClInclude Include="$(ReaderRoot)src\capture\worker_pool.hpp">
       <Filter>capture</Filter>
@@ -331,8 +331,8 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="$(ReaderRoot)src\capture\collector.cpp">
-      <Filter>capture</Filter>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\capture\collector.cpp">
+      <Filter>game\cs2\capture</Filter>
     </ClCompile>
     <ClCompile Include="$(ReaderRoot)src\capture\worker_pool.cpp">
       <Filter>capture</Filter>
@@ -462,5 +462,72 @@
     <ClCompile Include="$(ReaderRoot)src\game\cs2\accuracy\rules.cpp"><Filter>src\game\cs2\accuracy</Filter></ClCompile>
     <ClInclude Include="$(ReaderRoot)src\game\cs2\accuracy\rules.hpp"><Filter>src\game\cs2\accuracy</Filter></ClInclude>
     <ClInclude Include="$(ReaderRoot)src\memory\read_error.hpp"><Filter>memory</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(ReaderRoot)src\app\outputs.cpp">
+      <Filter>app</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\app\outputs.hpp">
+      <Filter>app</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\capture\cadence.hpp">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\capture\source.hpp">
+      <Filter>capture</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\diagnostics\capture_report.cpp">
+      <Filter>diagnostics</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\capture_report.hpp">
+      <Filter>diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\obf.hpp">
+      <Filter>diagnostics</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\diagnostics\read_metrics.hpp">
+      <Filter>diagnostics</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\game\cs2\capture\factory.cpp">
+      <Filter>game\cs2\capture</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\game\cs2\capture\factory.hpp">
+      <Filter>game\cs2\capture</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\memory\process_catalog.hpp">
+      <Filter>memory</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\model\source_status.hpp">
+      <Filter>model</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\platform\windows\process_catalog.cpp">
+      <Filter>platform\windows</Filter>
+    </ClCompile>
+    <ClCompile Include="$(ReaderRoot)src\platform\windows\run_control.cpp">
+      <Filter>platform\windows</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\platform\windows\run_control.hpp">
+      <Filter>platform\windows</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\runtime\binding.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\runtime\binding.hpp">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\runtime\control.hpp">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="$(ReaderRoot)src\runtime\output.hpp">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\runtime\runner.cpp">
+      <Filter>runtime</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\runtime\runner.hpp">
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <Filter Include="game\cs2\capture" />
+    <Filter Include="runtime" />
   </ItemGroup>
 </Project>
