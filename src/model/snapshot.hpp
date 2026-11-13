@@ -1,5 +1,5 @@
 #pragma once
-#include "memory/read_channel.hpp"
+#include "diagnostics/read_metrics.hpp"
 #include "model/living.hpp"
 #include "model/local.hpp"
 #include "model/world.hpp"
@@ -15,7 +15,7 @@ struct Snapshot {
     double capture_target_hz = 0; // 本批开采时冻结的目标，0表示调用方未提供；不冒充实测FPS。
     Interval interval;
     Coverage coverage;
-    memory::ReadMetrics reads;
+    diagnostics::ReadMetrics reads;
     bool directory_verified = false;
     std::vector<Player> players;
     std::vector<Weapon> weapons;

@@ -1,8 +1,9 @@
 #pragma once
 #include <cstdint>
+#include <initializer_list>
 #include <string_view>
 
-namespace cs2::platform::windows {
+namespace cs2::memory {
 struct ProcessNameKey {
     std::uint64_t first, second;
     std::size_t length;
@@ -25,4 +26,4 @@ constexpr ProcessNameKey hash_process_name(std::wstring_view name) noexcept {
 template <std::size_t N> consteval ProcessNameKey process_name(const wchar_t (&name)[N]) noexcept {
     return hash_process_name(std::wstring_view(name, N - 1));
 }
-} // namespace cs2::platform::windows
+} // namespace cs2::memory

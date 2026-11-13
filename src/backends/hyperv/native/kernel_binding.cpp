@@ -148,8 +148,8 @@ KernelLayout infer_layout(std::uint64_t caller_cr3) {
     const auto own_peb = __readgsqword(0x60);
     if (!memory::user_range(own_peb))
         throw std::runtime_error("Reader PEB is unavailable");
-    const auto own = platform::windows::query_identity(own_pid);
-    const auto system = platform::windows::query_identity(4);
+    const auto own = platform::windows::process_catalog().identity(own_pid);
+    const auto system = platform::windows::process_catalog().identity(4);
     if (!own || !system || system->creation_time != value(caller_cr3, system_process + result.created))
         throw std::runtime_error("Kernel process anchors disagree with the native process catalog");
     const auto links = infer_list(image, caller_cr3, system_process, result.pid, result.peb, result.created,

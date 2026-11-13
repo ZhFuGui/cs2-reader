@@ -1,4 +1,5 @@
 #pragma once
+#include "model/source_status.hpp"
 #include "synchronization/v1/projection.hpp"
 #include "transport/record.hpp"
 #include <optional>
@@ -11,12 +12,8 @@ struct ServerIdentity {
     double capture_hz{};
     bool verified_bone_semantics{};
 };
-enum class Availability : unsigned { Waiting = 1, Ready = 2, Unavailable = 3, Stopping = 4 };
-struct SourceStatus {
-    Availability availability = Availability::Waiting;
-    std::optional<std::uint64_t> epoch, last_success;
-    std::string reason = "WAITING_FOR_PROCESS";
-};
+using model::Availability;
+using model::SourceStatus;
 struct ClientRequest {
     enum class Kind { Subscribe, ClockQuery } kind{};
     std::uint64_t request_id{};

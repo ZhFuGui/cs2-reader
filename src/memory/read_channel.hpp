@@ -1,4 +1,5 @@
 #pragma once
+#include "diagnostics/read_metrics.hpp"
 #include "memory/dependent_read.hpp"
 #include "memory/transfer_result.hpp"
 #include <cstring>
@@ -7,28 +8,6 @@
 #include <type_traits>
 
 namespace cs2::memory {
-struct ReadMetrics {
-    std::uint64_t calls = 0, requested = 0, received = 0, failures = 0;
-    std::uint64_t hypercall_single = 0, hypercall_batch = 0, batch_items = 0, batch_errors = 0;
-    std::uint64_t batch_item_splits = 0, batch_byte_splits = 0;
-    // dependent 是 batch 的子集；现有协议中的 batch 汇总仍包含全部批读。
-    std::uint64_t hypercall_dependent = 0, dependent_items = 0;
-    ReadMetrics& operator+=(const ReadMetrics& rhs) noexcept {
-        calls += rhs.calls;
-        requested += rhs.requested;
-        received += rhs.received;
-        failures += rhs.failures;
-        hypercall_single += rhs.hypercall_single;
-        hypercall_batch += rhs.hypercall_batch;
-        batch_items += rhs.batch_items;
-        batch_errors += rhs.batch_errors;
-        batch_item_splits += rhs.batch_item_splits;
-        batch_byte_splits += rhs.batch_byte_splits;
-        hypercall_dependent += rhs.hypercall_dependent;
-        dependent_items += rhs.dependent_items;
-        return *this;
-    }
-};
 struct ReadRequest {
     Address address;
     void* destination;
@@ -47,7 +26,7 @@ class IReadChannel {
     }
     // 默认解释供离线通道验证；生产后端覆盖为原生依赖批读。不是原子快照。
     virtual void read_dependent(std::span<DependentRead>) noexcept;
-    virtual ReadMetrics take_backend_metrics() noexcept { return {}; }
+    virtual diagnostics::ReadMetrics take_backend_metrics() noexcept { return {}; }
 };
 template <class T> [[nodiscard]] std::optional<T> read_value(IReadChannel& channel, Address address) noexcept {
     static_assert(std::is_trivially_copyable_v<T> && !std::is_pointer_v<T>);
@@ -74,7 +53,7 @@ class MeteredChannel final : public IReadChannel {
         for (const auto& request : requests)
             account(request.result, request.bytes);
     }
-    [[nodiscard]] ReadMetrics take_metrics() noexcept {
+    [[nodiscard]] diagnostics::ReadMetrics take_metrics() noexcept {
         auto result = metrics_;
         result += source_.take_backend_metrics();
         metrics_ = {};
@@ -90,6 +69,6 @@ class MeteredChannel final : public IReadChannel {
             ++metrics_.failures;
     }
     IReadChannel& source_;
-    ReadMetrics metrics_;
+    diagnostics::ReadMetrics metrics_;
 };
 } // namespace cs2::memory

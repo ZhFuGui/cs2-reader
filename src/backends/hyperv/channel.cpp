@@ -66,9 +66,9 @@ void ReadChannel::read_many(std::span<memory::ReadRequest> requests) noexcept {
     }
     flush();
 }
-memory::ReadMetrics ReadChannel::take_backend_metrics() noexcept {
+diagnostics::ReadMetrics ReadChannel::take_backend_metrics() noexcept {
     const auto counters = std::exchange(counters_, {});
-    memory::ReadMetrics result;
+    diagnostics::ReadMetrics result;
     result.hypercall_single = counters.single;
     result.hypercall_batch = counters.batch + counters.dependent;
     result.batch_items = counters.items + counters.dependent_items;

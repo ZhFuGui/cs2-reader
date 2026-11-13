@@ -1,8 +1,8 @@
-#include "synchronization/json_snapshot.hpp"
+#include "diagnostics/snapshot_json.hpp"
 #include <charconv>
 #include <stdexcept>
 #include <type_traits>
-namespace cs2::synchronization {
+namespace cs2::diagnostics {
 namespace {
 class Json {
   public:
@@ -56,10 +56,14 @@ class Json {
     }
     void value(model::Quaternion v) {
         result += '[';
-        value(v.x); result += ',';
-        value(v.y); result += ',';
-        value(v.z); result += ',';
-        value(v.w); result += ']';
+        value(v.x);
+        result += ',';
+        value(v.y);
+        result += ',';
+        value(v.z);
+        result += ',';
+        value(v.w);
+        result += ']';
     }
     void value(model::GameTimePoint v) {
         result += '{';
@@ -430,4 +434,4 @@ std::string snapshot_json(const model::Snapshot& s) {
     j.result += "}}";
     return std::move(j.result);
 }
-} // namespace cs2::synchronization
+} // namespace cs2::diagnostics

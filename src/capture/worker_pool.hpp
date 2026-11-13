@@ -17,7 +17,7 @@ class WorkerPool {
     void run(std::size_t count, std::function<void(memory::IReadChannel&, std::size_t)> task);
     void run_ranges(std::size_t count, std::size_t grain,
                     std::function<void(memory::IReadChannel&, std::size_t, std::size_t)> task);
-    memory::ReadMetrics take_metrics();
+    diagnostics::ReadMetrics take_metrics();
     std::size_t size() const noexcept { return workers_.size(); }
 
   private:

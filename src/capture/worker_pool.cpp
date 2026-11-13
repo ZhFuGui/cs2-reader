@@ -93,9 +93,9 @@ void WorkerPool::work(Worker& worker) {
         }
     }
 }
-memory::ReadMetrics WorkerPool::take_metrics() {
+diagnostics::ReadMetrics WorkerPool::take_metrics() {
     const std::lock_guard owner(run_mutex_);
-    memory::ReadMetrics result;
+    diagnostics::ReadMetrics result;
     for (auto& worker : workers_)
         result += worker->reader->take_metrics();
     return result;
