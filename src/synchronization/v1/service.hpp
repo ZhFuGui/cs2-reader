@@ -1,16 +1,19 @@
 #pragma once
 #include "capture/clock.hpp"
 #include "capture/frequency_control.hpp"
-#include "synchronization/v1/protocol.hpp"
+#include "model/source_status.hpp"
 #include <memory>
 #include <string>
+
+namespace cs2::model {
+struct Snapshot;
+}
 
 namespace cs2::synchronization::v1 {
 struct ServiceOptions {
     std::uint16_t port = 13202;
     std::size_t maximum_connections = 8;
     double capture_hz = 90;
-    bool hyperv = false;
     bool bones_enabled = true;
     std::string bind_address = "127.0.0.1";
 };
@@ -26,7 +29,7 @@ class SubscriptionService final {
     SubscriptionService(const SubscriptionService&) = delete;
     SubscriptionService& operator=(const SubscriptionService&) = delete;
     void submit(std::shared_ptr<const model::Snapshot>);
-    void unavailable(Availability, std::string reason, std::optional<std::uint64_t> epoch = {});
+    void unavailable(model::Availability, std::string reason, std::optional<std::uint64_t> epoch = {});
     ServiceStats stats() const;
 
   private:
