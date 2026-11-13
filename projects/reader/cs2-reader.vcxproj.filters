@@ -527,7 +527,24 @@
     <ClInclude Include="$(ReaderRoot)src\runtime\runner.hpp">
       <Filter>runtime</Filter>
     </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\publication.cpp">
+      <Filter>synchronization\v1</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\publication.hpp">
+      <Filter>synchronization\v1</Filter>
+    </ClInclude>
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\subscribers.cpp">
+      <Filter>synchronization\v1</Filter>
+    </ClCompile>
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\subscribers.hpp">
+      <Filter>synchronization\v1</Filter>
+    </ClInclude>
     <Filter Include="game\cs2\capture" />
     <Filter Include="runtime" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(ReaderRoot)src\transport\record_handler.hpp">
+      <Filter>transport</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

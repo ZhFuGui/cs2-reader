@@ -1,9 +1,13 @@
 #pragma once
 #include "capture/clock.hpp"
 #include "capture/frequency_control.hpp"
-#include "synchronization/v1/protocol.hpp"
+#include "model/source_status.hpp"
 #include <memory>
 #include <string>
+
+namespace cs2::model {
+struct Snapshot;
+}
 
 namespace cs2::synchronization::v1 {
 struct ServiceOptions {
@@ -25,7 +29,7 @@ class SubscriptionService final {
     SubscriptionService(const SubscriptionService&) = delete;
     SubscriptionService& operator=(const SubscriptionService&) = delete;
     void submit(std::shared_ptr<const model::Snapshot>);
-    void unavailable(Availability, std::string reason, std::optional<std::uint64_t> epoch = {});
+    void unavailable(model::Availability, std::string reason, std::optional<std::uint64_t> epoch = {});
     ServiceStats stats() const;
 
   private:

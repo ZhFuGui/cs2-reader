@@ -261,6 +261,11 @@
     <ClInclude Include="$(ReaderRoot)src\runtime\output.hpp" />
     <ClCompile Include="$(ReaderRoot)src\runtime\runner.cpp" />
     <ClInclude Include="$(ReaderRoot)src\runtime\runner.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\publication.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\publication.hpp" />
+    <ClCompile Include="$(ReaderRoot)src\synchronization\v1\subscribers.cpp" />
+    <ClInclude Include="$(ReaderRoot)src\synchronization\v1\subscribers.hpp" />
+    <ClInclude Include="$(ReaderRoot)src\transport\record_handler.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="VerifyFrozenProtocol" BeforeTargets="ClCompile">

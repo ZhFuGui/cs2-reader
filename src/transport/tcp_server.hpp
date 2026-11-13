@@ -1,24 +1,11 @@
 #pragma once
 #include "capture/clock.hpp"
-#include "transport/record.hpp"
+#include "transport/record_handler.hpp"
 #include <atomic>
 #include <memory>
-#include <span>
 #include <string_view>
 
 namespace cs2::transport {
-using ConnectionId = std::uint64_t;
-class IRecordHandler {
-  public:
-    virtual ~IRecordHandler() = default;
-    virtual void connected(ConnectionId) = 0;
-    virtual void received(ConnectionId, std::span<const std::byte>, std::uint64_t received_qpc) = 0;
-    virtual void poll(ConnectionId) = 0;
-    virtual std::optional<Record> next(ConnectionId) = 0;
-    virtual bool valid(const Record&) = 0;
-    virtual void sent(ConnectionId, const Record&) = 0;
-    virtual void disconnected(ConnectionId) noexcept = 0;
-};
 // 只处理TCP记录与公平的非阻塞I/O，不识别游戏或protobuf。
 class TcpServer final {
   public:
