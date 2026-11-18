@@ -24,4 +24,6 @@ hyper-mem 是唯一后端，自动寻找目标进程，默认只读；不接受 
 
 默认监听 `127.0.0.1`；`--bind` 可指定本机局域网 IPv4，或用 `0.0.0.0` 监听所有 IPv4 网卡。客户端填写 Reader 主机的局域网地址，使用相同的 TCP 端口和 v1 协议；跨机时间通过既有时钟往返映射。
 
+在 [JSON 注册表](protocol/reader/diagnostic-codes.json) 中维护诊断编号，按 [编号对照表](protocol/reader/diagnostic-codes.md#维护编号) 中的命令刷新查阅表。
+
 可通过 `/p:BuildArtifactsRoot=U:\cs2\build\cs2-reader` 将构建产物放到项目外。只改变中间目录时使用 `/p:BuildIntermediatesRoot=...`。

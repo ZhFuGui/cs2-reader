@@ -1,0 +1,178 @@
+{
+  "reasons": [
+    {
+      "id": 1,
+      "symbol": "SourceIncompatible",
+      "availability": 3,
+      "meaning": "当前采集配置与已校验的源不兼容",
+      "usage": "暂停采集，服务继续提供状态和心跳"
+    },
+    {
+      "id": 2,
+      "symbol": "DiscoveryUnavailable",
+      "availability": 3,
+      "meaning": "目标发现暂时不可用",
+      "usage": "按已有等待间隔重试"
+    },
+    {
+      "id": 3,
+      "symbol": "BindingUnavailable",
+      "availability": 3,
+      "meaning": "目标绑定暂时不可用",
+      "usage": "按已有恢复路径核对绑定"
+    },
+    {
+      "id": 4,
+      "symbol": "ContextPending",
+      "availability": 3,
+      "meaning": "采集所需上下文尚未就绪",
+      "usage": "等待上下文可用后再校验"
+    },
+    {
+      "id": 5,
+      "symbol": "WorkersUnavailable",
+      "availability": 3,
+      "meaning": "采集工作线程暂时不可用",
+      "usage": "按已有等待间隔重试"
+    },
+    {
+      "id": 6,
+      "symbol": "SourceRetired",
+      "availability": 3,
+      "meaning": "已确认目标实例退出或被替换",
+      "usage": "撤销该实例的发布资格"
+    },
+    {
+      "id": 7,
+      "symbol": "SourceContextChanged",
+      "availability": 3,
+      "meaning": "已确认采集上下文变化",
+      "usage": "撤销旧代次，按已有流程确认新代次"
+    },
+    {
+      "id": 8,
+      "symbol": "CaptureUnavailable",
+      "availability": 3,
+      "meaning": "当前采集暂时失败",
+      "usage": "撤销当前发布结果，等待下一次有效采集"
+    },
+    {
+      "id": 9,
+      "symbol": "EncodingFailed",
+      "availability": 3,
+      "meaning": "当前数据编码失败",
+      "usage": "撤销失败结果，继续处理后续有效输入"
+    },
+    {
+      "id": 10,
+      "symbol": "SourceInvalidated",
+      "availability": 3,
+      "meaning": "源已恢复，订阅端尚未收到此前的失效",
+      "usage": "先通知失效，再通知当前状态"
+    },
+    {
+      "id": 11,
+      "symbol": "StaleRequest",
+      "meaning": "订阅请求序号陈旧",
+      "usage": "`Reject`，关联原请求 ID"
+    },
+    {
+      "id": 12,
+      "symbol": "ProtocolVersionMismatch",
+      "meaning": "订阅协议版本不匹配",
+      "usage": "`Reject`，关联原请求 ID"
+    },
+    {
+      "id": 13,
+      "symbol": "SchemaMismatch",
+      "meaning": "订阅协议描述摘要不匹配",
+      "usage": "`Reject`，关联原请求 ID"
+    },
+    {
+      "id": 14,
+      "symbol": "UnsupportedRate",
+      "meaning": "请求频率超出支持范围",
+      "usage": "`Reject`，关联原请求 ID"
+    },
+    {
+      "id": 15,
+      "symbol": "InvalidOptions",
+      "meaning": "启动参数无效",
+      "usage": "本地故障事件，按参数校验结果退出"
+    },
+    {
+      "id": 16,
+      "symbol": "ApplicationFailure",
+      "meaning": "应用入口收到未分类的致命异常",
+      "usage": "本地故障事件，保留明确的进程退出状态"
+    },
+    {
+      "id": 17,
+      "symbol": "NetworkUnavailable",
+      "meaning": "TCP 服务初始化或运行失败",
+      "usage": "本地故障事件，附可取得的原生错误码"
+    },
+    {
+      "id": 18,
+      "symbol": "LogFileUnavailable",
+      "meaning": "文件日志打开或写入失败",
+      "usage": "本地故障事件，继续记录到内存日志"
+    },
+    {
+      "id": 19,
+      "symbol": "SnapshotExportFailed",
+      "meaning": "诊断快照导出失败",
+      "usage": "本地故障事件，记录导出状态"
+    },
+    {
+      "id": 24,
+      "symbol": "WaitExpired",
+      "meaning": "等待目标达到用户配置的时限",
+      "usage": "本地故障事件，按等待策略退出"
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "symbol": "StatusChanged",
+      "meaning": "状态切换",
+      "usage": "`availability`、可选 `reason_code` 和会话代次"
+    },
+    {
+      "id": 2,
+      "symbol": "Fault",
+      "meaning": "本地故障",
+      "usage": "`reason_code`、可选的 `os_code`"
+    },
+    {
+      "id": 3,
+      "symbol": "Started",
+      "meaning": "服务启动",
+      "usage": "版本、频率等运行配置"
+    },
+    {
+      "id": 4,
+      "symbol": "SourceOpened",
+      "meaning": "采集会话建立",
+      "usage": "会话代次"
+    },
+    {
+      "id": 5,
+      "symbol": "CaptureStats",
+      "meaning": "采集统计",
+      "usage": "序号、计数、频率、耗时"
+    },
+    {
+      "id": 6,
+      "symbol": "SubscriptionStats",
+      "meaning": "订阅统计",
+      "usage": "连接、发送、合并计数"
+    },
+    {
+      "id": 7,
+      "symbol": "Stopped",
+      "meaning": "服务停止",
+      "usage": "最终计数"
+    }
+  ]
+}
