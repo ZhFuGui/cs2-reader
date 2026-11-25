@@ -10,8 +10,8 @@ class IOutput {
   public:
     virtual ~IOutput() = default;
     virtual void submit(std::shared_ptr<const model::Snapshot>) = 0;
-    virtual void unavailable(model::Availability, std::string reason, std::optional<std::uint64_t> epoch = {}) = 0;
-    virtual void report(std::ostream&) const = 0;
+    virtual void unavailable(model::Availability, model::ReasonCode, std::optional<std::uint64_t> epoch = {}) = 0;
+    virtual void report(std::ostream&) = 0;
     virtual std::optional<std::uint64_t> coalesced() const = 0;
 };
 } // namespace cs2::runtime

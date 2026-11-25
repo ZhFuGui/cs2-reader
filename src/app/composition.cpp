@@ -1,15 +1,7 @@
 #include "app/composition.hpp"
-#include "backends/hyperv/backend.hpp"
-#include "backends/r3/backend.hpp"
-#include <stdexcept>
+#include "backends/shared/backend.hpp"
 namespace cs2::app {
-std::unique_ptr<memory::IBackend> create_backend(memory::BackendKind kind) {
-    switch (kind) {
-    case memory::BackendKind::R3:
-        return backends::make_r3_backend();
-    case memory::BackendKind::HyperV:
-        return backends::make_hyperv_backend();
-    }
-    throw std::runtime_error("Unsupported backend");
+std::unique_ptr<memory::IBackend> create_backend(memory::ProcessNameKey name, std::string_view image_name) {
+    return backends::make_shared_backend(name, image_name);
 }
 } // namespace cs2::app
