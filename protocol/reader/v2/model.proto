@@ -1,7 +1,7 @@
 syntax = "proto3";
-package cs2.reader.v1;
+package cs2.reader.v2;
 
-// CS2 Reader v1 只读订阅契约。
+// CS2 Reader v2 只读订阅契约。
 // 本文件只描述实际取得的数据；骨点语义按已核验模型提供，不补造未知模型或弹道资料。
 
 message Vec3 {

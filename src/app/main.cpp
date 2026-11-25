@@ -1,9 +1,9 @@
 #include "app/application.hpp"
-#include "diagnostics/obf.hpp"
+#include "diagnostics/events.hpp"
 #include "diagnostics/runtime_log.hpp"
 #include <cstdlib>
-#include <exception>
-#include <iostream>
+#include <stdexcept>
+#include <system_error>
 #if defined(CS2_STEALTH)
 #include <windows.h>
 #endif
@@ -11,13 +11,23 @@
 namespace {
 int run_reader(int argc, wchar_t** argv) {
     cs2::diagnostics::RuntimeLog log;
+    using cs2::model::ReasonCode;
     try {
-        const auto options = cs2::app::parse_options(argc, argv);
+        cs2::app::Options options;
+        try {
+            options = cs2::app::parse_options(argc, argv);
+        } catch (const std::logic_error&) {
+            cs2::diagnostics::report_fault(log.stream(), {ReasonCode::InvalidOptions}, cs2::diagnostics::Level::Error);
+            return 1;
+        }
         if (options.log_file) {
             try {
                 log.enable_file();
-            } catch (const std::runtime_error& error) {
-                log.stream() << "File logging unavailable; in-memory logging continues: " << error.what() << '\n';
+            } catch (const std::system_error& error) {
+                cs2::diagnostics::report_fault(
+                    log.stream(), {ReasonCode::LogFileUnavailable, static_cast<std::uint32_t>(error.code().value())});
+            } catch (const std::runtime_error&) {
+                cs2::diagnostics::report_fault(log.stream(), {ReasonCode::LogFileUnavailable});
             }
         }
         if (options.help) {
@@ -25,8 +35,8 @@ int run_reader(int argc, wchar_t** argv) {
             return 0;
         }
         return cs2::app::run(options, log.stream());
-    } catch (const std::exception& error) {
-        log.stream() << OBF("Startup failed: ") << error.what() << '\n';
+    } catch (const std::exception&) {
+        cs2::diagnostics::report_fault(log.stream(), {ReasonCode::ApplicationFailure}, cs2::diagnostics::Level::Error);
         return 1;
     }
 }

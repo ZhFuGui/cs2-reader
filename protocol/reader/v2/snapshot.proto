@@ -1,6 +1,6 @@
 syntax = "proto3";
-package cs2.reader.v1;
-import "reader/v1/model.proto";
+package cs2.reader.v2;
+import "reader/v2/model.proto";
 
 message CaptureIdentity {
   bytes reader_instance_id = 1; // 每次 Reader 启动随机生成的16字节标识，不能从PID推导或代替。

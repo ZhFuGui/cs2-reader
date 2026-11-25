@@ -3,11 +3,15 @@
 #include <stdexcept>
 namespace cs2::diagnostics {
 SnapshotSink::SnapshotSink(const std::filesystem::path& path) {
-    if (path.has_parent_path())
-        std::filesystem::create_directories(path.parent_path());
+    if (path.has_parent_path()) {
+        std::error_code error;
+        std::filesystem::create_directories(path.parent_path(), error);
+        if (error)
+            throw SnapshotOutputFailed(static_cast<std::uint32_t>(error.value()));
+    }
     file_.open(path, std::ios::binary | std::ios::trunc);
     if (!file_)
-        throw std::runtime_error("Cannot create the requested snapshot output");
+        throw SnapshotOutputFailed{};
     thread_ = std::thread([this] { work(); });
 }
 SnapshotSink::~SnapshotSink() {
@@ -32,9 +36,9 @@ std::uint64_t SnapshotSink::coalesced() const {
     std::lock_guard lock(mutex_);
     return coalesced_;
 }
-std::string SnapshotSink::error() const {
+bool SnapshotSink::failed() const {
     std::lock_guard lock(mutex_);
-    return error_;
+    return failed_;
 }
 void SnapshotSink::work() {
     for (;;) {
@@ -50,12 +54,12 @@ void SnapshotSink::work() {
         try {
             file_ << snapshot_json(*snapshot) << '\n';
             file_.flush();
-            if (!file_)
-                throw std::runtime_error("Snapshot output I/O failed");
-        } catch (const std::exception& e) {
-            std::lock_guard lock(mutex_);
-            error_ = e.what();
+            if (file_)
+                continue;
+        } catch (const std::exception&) {
         }
+        std::lock_guard lock(mutex_);
+        failed_ = true;
     }
 }
 } // namespace cs2::diagnostics

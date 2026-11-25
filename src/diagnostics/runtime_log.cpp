@@ -1,8 +1,13 @@
 #include "diagnostics/runtime_log.hpp"
+#include "diagnostics/events.hpp"
 #include <algorithm>
 #include <bcrypt.h>
 #include <cstring>
+#include <ctime>
+#include <locale>
+#include <sstream>
 #include <stdexcept>
+#include <system_error>
 
 namespace cs2::diagnostics {
 namespace {
@@ -39,13 +44,32 @@ std::wstring random_name() {
     return result + L".log";
 }
 } // namespace
+std::ostream& event(std::ostream& log, EventId id, Level level) {
+    const auto now = std::time(nullptr);
+    std::tm utc{};
+    char timestamp[21]{};
+    if (gmtime_s(&utc, &now) == 0)
+        std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", &utc);
+    const char* severity = level == Level::Info ? "INFO" : level == Level::Warning ? "WARN" : "ERROR";
+    return log << timestamp << ' ' << severity << " event_id=" << static_cast<std::uint32_t>(id);
+}
+
+void report_fault(std::ostream& log, model::Fault fault, Level level) {
+    event(log, EventId::Fault, level) << " reason_code=" << static_cast<std::uint32_t>(fault.reason);
+    if (fault.os_code)
+        log << " os_code=" << *fault.os_code;
+    log << '\n';
+}
+
 RuntimeLog::RuntimeLog(std::size_t capacity) : ring_(capacity), stream_(this) {
     if (!capacity)
         throw std::invalid_argument("Log ring capacity must be positive");
+    stream_.imbue(std::locale::classic());
 }
 RuntimeLog::~RuntimeLog() {
     std::lock_guard lock(mutex_);
     flush_file();
+    report_file_error();
     if (file_ != INVALID_HANDLE_VALUE)
         CloseHandle(file_);
 }
@@ -74,20 +98,33 @@ void RuntimeLog::flush_file() noexcept {
     std::size_t offset = 0;
     while (offset < pending_size_) {
         DWORD written = 0;
-        if (!WriteFile(file_, pending_.data() + offset, static_cast<DWORD>(pending_size_ - offset), &written, nullptr) ||
-            !written) {
-            file_error_ = GetLastError();
+        const auto success =
+            WriteFile(file_, pending_.data() + offset, static_cast<DWORD>(pending_size_ - offset), &written, nullptr);
+        if (!success || !written) {
+            file_error_ = success ? ERROR_WRITE_FAULT : GetLastError();
             if (!file_error_)
                 file_error_ = ERROR_WRITE_FAULT;
             CloseHandle(file_);
             file_ = INVALID_HANDLE_VALUE;
-            constexpr char notice[] = "\nLog file write failed; in-memory logging continues.\n";
-            append_ring(notice, sizeof(notice) - 1);
             break;
         }
         offset += written;
     }
     pending_size_ = 0;
+}
+void RuntimeLog::report_file_error() noexcept {
+    if (!file_error_ || file_error_reported_)
+        return;
+    try {
+        std::ostringstream record;
+        record.imbue(std::locale::classic());
+        report_fault(record, {model::ReasonCode::LogFileUnavailable, file_error_});
+        const auto line = std::move(record).str();
+        append_ring(line.data(), line.size());
+        file_error_reported_ = true;
+    } catch (...) {
+        // file_error_ 仍保留原生错误值。
+    }
 }
 void RuntimeLog::append_file(const char* data, std::size_t count) noexcept {
     while (count && file_ != INVALID_HANDLE_VALUE) {
@@ -106,6 +143,8 @@ std::streamsize RuntimeLog::xsputn(const char* data, std::streamsize count) {
     std::lock_guard lock(mutex_);
     append_ring(data, static_cast<std::size_t>(count));
     append_file(data, static_cast<std::size_t>(count));
+    if (file_error_ && data[count - 1] == '\n')
+        report_file_error();
     return count;
 }
 RuntimeLog::int_type RuntimeLog::overflow(int_type value) {
@@ -118,6 +157,7 @@ RuntimeLog::int_type RuntimeLog::overflow(int_type value) {
 int RuntimeLog::sync() {
     std::lock_guard lock(mutex_);
     flush_file();
+    report_file_error();
     return 0; // 文件故障不能置坏整个日志流；环形日志仍继续接收。
 }
 void RuntimeLog::enable_file() {
@@ -133,7 +173,7 @@ void RuntimeLog::enable_file() {
             const auto error = GetLastError();
             if (error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS)
                 continue;
-            throw std::runtime_error("Cannot create temporary log file: " + std::to_string(error));
+            throw std::system_error(static_cast<int>(error), std::system_category(), "Cannot create temporary log file");
         }
         file_ = handle;
         path_ = path;

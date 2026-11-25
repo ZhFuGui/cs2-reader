@@ -1,6 +1,6 @@
 #include "app/application.hpp"
+#include "diagnostics/events.hpp"
 #include "diagnostics/runtime_log.hpp"
-#include <exception>
 #include <windows.h>
 
 namespace {
@@ -10,10 +10,9 @@ DWORD WINAPI reader_main(void*) noexcept {
         try {
             // 使用 Reader 默认配置，不解析宿主命令行、不接管宿主控制台。
             return static_cast<DWORD>(cs2::app::run(cs2::app::Options{}, log.stream(), false));
-        } catch (const std::exception& error) {
-            log.stream() << "Reader stopped after an unrecoverable error: " << error.what() << '\n';
         } catch (...) {
-            log.stream() << "Reader stopped after an unknown error.\n";
+            cs2::diagnostics::report_fault(log.stream(), {cs2::model::ReasonCode::ApplicationFailure},
+                                          cs2::diagnostics::Level::Error);
         }
     } catch (...) {
         // 日志自身初始化失败时也只退出当前线程，不让 C++ 异常越过线程入口。

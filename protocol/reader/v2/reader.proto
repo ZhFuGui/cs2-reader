@@ -1,6 +1,6 @@
 syntax = "proto3";
-package cs2.reader.v1;
-import "reader/v1/snapshot.proto";
+package cs2.reader.v2;
+import "reader/v2/snapshot.proto";
 
 // 默认127.0.0.1:13202，同一端口支持多个长期只读连接。
 // 每条记录为4字节大端正文长度+Envelope，正文1..16MiB。没有UDP、分片、旧协议回退或命令写内存。
@@ -11,7 +11,7 @@ enum BackendMode {
   BACKEND_HYPERV = 2; // 启动时固定的既有Hyper-V后端。
 }
 message Hello {
-  uint32 protocol_version = 1; // 当前版本为1；不匹配直接拒绝，不套用PUBG协议。
+  uint32 protocol_version = 1; // 当前版本为 2。须与外层版本一致。
   bytes schema_sha256 = 2; // 冻结descriptor的32字节摘要，不是payload序列化摘要。
   BackendMode backend = 3; // 当前固定后端，不接受消费者切换。
   ClockDescriptor clock = 4; // 当前Reader的时钟域与频率。
@@ -28,7 +28,7 @@ message Hello {
 }
 message Subscribe {
   fixed64 request_id = 1; // 本连接请求序号，回执原样返回。
-  uint32 protocol_version = 2; // 请求版本，当前为1。
+  uint32 protocol_version = 2; // 请求版本，当前为 2。
   bytes schema_sha256 = 3; // 客户端支持的descriptor摘要，不符不能静默接入。
   optional double maximum_publish_hz = 4; // 1..300Hz显式请求，允许小数；同连接可重新订阅。缺失跟随完整采集，不单独提高共享需求。
 }
@@ -48,7 +48,8 @@ message Status {
   Availability availability = 1; // 这个服务事件明确的状态。
   optional fixed64 process_session_epoch = 2; // 如已建立会话，指明该代次；缺失不是0代次。
   optional fixed64 last_successful_capture_sequence = 3; // 仅表示历史进展，不能复活历史数据。
-  string reason_code = 4; // 稳定的机器可读原因，例如ROOT_UNAVAILABLE，不携带本机内存地址。
+  reserved 4;
+  optional uint32 reason_code = 5; // 正整数原因码。无细分原因时省略，解释见 diagnostic-codes.md。
 }
 message ClockQuery {
   fixed64 request_id = 1; // 与一次往返绑定的请求标识。
@@ -63,15 +64,15 @@ message ClockSample {
 }
 message Reject {
   fixed64 request_id = 1; // 被拒绝的请求序号。
-  string reason_code = 2; // 稳定原因，例如VERSION_MISMATCH、SCHEMA_MISMATCH、UNSUPPORTED_RATE。
-  string detail = 3; // 可供人工理解的简短说明，不包含纯调试链条或地址。
+  reserved 2, 3;
+  uint32 reason_code = 4; // 大于零的拒绝原因码，解释见 diagnostic-codes.md。
 }
 message Heartbeat {
   optional fixed64 last_successful_capture_sequence = 1; // 最近成功采集进展，不制造新采样。
   fixed64 coalesced_pending_states = 2; // 本连接尚未开始发送而被更新完整状态替代的次数。
 }
 message Envelope {
-  uint32 protocol_version = 1; // 当前版本1。
+  uint32 protocol_version = 1; // 当前版本 2。
   bytes reader_instance_id = 2; // 服务器消息的16字节实例标识；客户端请求可缺失。
   fixed64 event_sequence = 3; // 服务器本连接事件序号，严格递增；状态与数据共用排序，失败不能被旧成功覆盖。
   optional fixed64 send_started_qpc = 4; // 本记录首次发送调用前的QPC；没有真实锚点时保持缺失，不能填0或借用别帧。

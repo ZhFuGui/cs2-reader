@@ -31,6 +31,7 @@ class RuntimeLog final : private std::streambuf {
     void append_ring(const char*, std::size_t) noexcept;
     void append_file(const char*, std::size_t) noexcept;
     void flush_file() noexcept;
+    void report_file_error() noexcept;
     mutable std::mutex mutex_;
     std::vector<char> ring_;
     std::size_t head_ = 0, size_ = 0;
@@ -40,6 +41,7 @@ class RuntimeLog final : private std::streambuf {
     std::array<char, 4096> pending_{};
     std::size_t pending_size_ = 0;
     std::uint32_t file_error_ = 0;
+    bool file_error_reported_ = false;
     std::ostream stream_;
 };
 } // namespace cs2::diagnostics

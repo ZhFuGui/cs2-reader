@@ -7,7 +7,7 @@
 namespace cs2::diagnostics {
 class SnapshotSink;
 }
-namespace cs2::synchronization::v1 {
+namespace cs2::synchronization::v2 {
 class SubscriptionService;
 }
 namespace cs2::app {
@@ -17,12 +17,14 @@ class Outputs final : public runtime::IOutput {
     Outputs(const Options&, const capture::IClock&, capture::FrequencyControl&);
     ~Outputs();
     void submit(std::shared_ptr<const model::Snapshot>) override;
-    void unavailable(model::Availability, std::string, std::optional<std::uint64_t>) override;
-    void report(std::ostream&) const override;
+    void unavailable(model::Availability, model::ReasonCode, std::optional<std::uint64_t>) override;
+    void report(std::ostream&) override;
     std::optional<std::uint64_t> coalesced() const override;
 
   private:
-    std::unique_ptr<synchronization::v1::SubscriptionService> service_;
+    std::unique_ptr<synchronization::v2::SubscriptionService> service_;
     std::unique_ptr<diagnostics::SnapshotSink> sink_;
+    std::optional<model::Fault> last_network_fault_, last_encoding_fault_;
+    bool reported_export_fault_ = false;
 };
 } // namespace cs2::app

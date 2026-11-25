@@ -1,6 +1,7 @@
-#include "synchronization/v1/publication.hpp"
+#include "synchronization/v2/publication.hpp"
+#include "model/snapshot.hpp"
 
-namespace cs2::synchronization::v1 {
+namespace cs2::synchronization::v2 {
 bool Publication::submit(std::shared_ptr<const model::Snapshot> snapshot) {
     if (!snapshot)
         return false;
@@ -18,7 +19,7 @@ bool Publication::submit(std::shared_ptr<const model::Snapshot> snapshot) {
                 ++state_.invalidation_serial;
             state_.packet.reset();
         }
-        state_.status = {model::Availability::Ready, snapshot->epoch, snapshot->sequence, "CAPTURE_READY"};
+        state_.status = {model::Availability::Ready, snapshot->epoch, snapshot->sequence};
         if (input_)
             ++coalesced_;
         input_ = EncodingTask{std::move(snapshot), state_.token};
@@ -26,7 +27,8 @@ bool Publication::submit(std::shared_ptr<const model::Snapshot> snapshot) {
     ready_.notify_one();
     return true;
 }
-bool Publication::invalidate(model::Availability availability, std::string reason, std::optional<std::uint64_t> epoch) {
+bool Publication::invalidate(model::Availability availability, model::ReasonCode reason,
+                             std::optional<std::uint64_t> epoch) {
     std::lock_guard lock(mutex_);
     if (stopping_ ||
         (state_.status.availability == availability && state_.status.reason == reason && state_.status.epoch == epoch))
@@ -35,16 +37,20 @@ bool Publication::invalidate(model::Availability availability, std::string reaso
     ++state_.status_revision;
     ++state_.invalidation_serial;
     state_.status.availability = availability;
-    state_.status.reason = std::move(reason);
+    state_.status.reason = reason;
     state_.status.epoch = epoch;
     state_.packet.reset();
     input_.reset();
     return true;
 }
-std::optional<EncodingTask> Publication::take() {
+std::optional<EncodingTask> Publication::take(std::chrono::milliseconds timeout) {
     std::unique_lock lock(mutex_);
-    ready_.wait(lock, [&] { return stopping_ || input_.has_value(); });
-    if (stopping_)
+    const auto ready = [&] { return stopping_ || input_.has_value(); };
+    if (timeout == std::chrono::milliseconds::max())
+        ready_.wait(lock, ready);
+    else
+        ready_.wait_for(lock, timeout, ready);
+    if (stopping_ || !input_)
         return {};
     auto task = std::move(input_);
     input_.reset();
@@ -57,33 +63,31 @@ bool Publication::commit(std::shared_ptr<const EncodedSnapshot> packet) {
     if (stopping_ || state_.token != packet->token || state_.status.availability != model::Availability::Ready)
         return false;
     state_.packet = std::move(packet);
-    if (error_.starts_with("Encoding:"))
-        error_.clear();
+    encoding_fault_.reset();
     ++encoded_;
     return true;
 }
-bool Publication::encoding_failed(std::uint64_t token, std::string error) {
+bool Publication::encoding_failed(std::uint64_t token) {
     std::lock_guard lock(mutex_);
     if (stopping_ || state_.token != token)
         return false; // 晚到的旧代次异常也不能覆盖当前健康诊断。
-    error_ = std::move(error);
+    encoding_fault_ = model::Fault{model::ReasonCode::EncodingFailed};
     ++state_.token;
     ++state_.status_revision;
     ++state_.invalidation_serial;
     state_.status.availability = model::Availability::Unavailable;
-    state_.status.reason = "ENCODING_FAILED";
+    state_.status.reason = model::ReasonCode::EncodingFailed;
     state_.packet.reset();
     input_.reset();
     return true;
 }
-void Publication::failure(std::string error) {
+void Publication::network_failed(std::optional<std::uint32_t> os_code) {
     std::lock_guard lock(mutex_);
-    error_ = std::move(error);
+    network_fault_ = model::Fault{model::ReasonCode::NetworkUnavailable, os_code};
 }
-void Publication::clear_error(std::string_view prefix) {
+void Publication::network_recovered() {
     std::lock_guard lock(mutex_);
-    if (error_.starts_with(prefix))
-        error_.clear();
+    network_fault_.reset();
 }
 void Publication::stop() {
     {
@@ -93,6 +97,7 @@ void Publication::stop() {
         stopping_ = true;
         ++state_.token;
         state_.status.availability = model::Availability::Stopping;
+        state_.status.reason = model::ReasonCode::None;
         input_.reset();
         state_.packet.reset();
     }
@@ -104,6 +109,6 @@ PublicationView Publication::view() const {
 }
 PublicationStats Publication::stats() const {
     std::lock_guard lock(mutex_);
-    return {encoded_, coalesced_, error_};
+    return {encoded_, coalesced_, encoding_fault_, network_fault_};
 }
-} // namespace cs2::synchronization::v1
+} // namespace cs2::synchronization::v2

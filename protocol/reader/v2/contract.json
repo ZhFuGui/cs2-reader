@@ -1,8 +1,8 @@
 {
-  "protocol": "cs2.reader.v1",
+  "protocol": "cs2.reader.v2",
   "status": "implemented_eye_history_delegation_parent_candidate",
   "language": "zh-CN",
-  "entry": "reader/v1/reader.proto",
+  "entry": "reader/v2/reader.proto",
   "transport": {
     "proposed_address": "127.0.0.1:13202",
     "bind_configuration": "启动参数--bind指定数字IPv4；默认127.0.0.1，可指定本机局域网IPv4或0.0.0.0。客户端连接Reader实际网卡地址，TCP记录格式不变",
@@ -17,7 +17,7 @@
       "服务端Subscribed或Reject",
       "服务端Snapshot、Status及Heartbeat"
     ],
-    "version": "版本与冻结descriptor摘要必须相符；未知的body、缺失body或方向错误均拒绝",
+    "version": "协议版本为 2，版本与冻结描述符摘要都须相符。原因码是正整数，编号见 diagnostic-codes.md。未知、缺失或方向错误的消息体均拒绝",
     "subscriber_limits": "显式频率必须有限且在1..300Hz内，可为小数；同一连接可重复Subscribe调频。超出握手时capture_hz的合法请求也接纳，不裁剪",
     "direction": "客户端仅Subscribe和ClockQuery；服务端不接收任何内存写入命令",
     "backpressure": "每连接一条不可变发送中记录、一个最新完整待发共享状态，另有最多16条小控制记录。慢连接不阻塞采集；没有年龄淘汰",
@@ -34,7 +34,7 @@
     "subscriber_ack": "显式请求接纳时maximum_publish_hz等于请求，capture_hz大于等于该请求。回执仅确认采用目标，不保证性能达成；另一个消费者随后调频可能再次改变共享目标"
   },
   "schema_artifact": {
-    "descriptor_name": "reader-v1.descriptor.pb",
+    "descriptor_name": "reader-v2.descriptor.pb",
     "canonicalization": "protoc生成含全部imports、不含source_info的FileDescriptorSet；按file.name升序排列file，deterministic序列化后冻结",
     "fingerprint": "冻结descriptor原始字节的SHA-256。Hello/Subscribe携带32字节摘要；manifest另提供十六进制文本",
     "compiler_compatibility": "消费方用与自身protobuf运行时匹配的protoc生成C++。摘要采用随SDK交付的冻结descriptor，不用不同版本编译器的输出自行替换摘要"
@@ -181,7 +181,7 @@
     "verified_build": 14192,
     "client_sha256": "ccaf4e4926babc052994502b19ec61198a11008a39dce712921b93dd993be9f5",
     "scope": "当前模块静态分析、原始x64机器码离线仿真、来源故障测试及人工单发/连发/停火/受击/换枪/变倍/死亡观战记录；有效01–06+08共8859帧。旧07暴露并修正当前Pawn来源问题，不作为观战通过。实机raw观战模式只出现2，其他模式未宣称实机覆盖。",
-    "implementation": "sdk/include/cs2_reader/v1/recoil.hpp；纯角度求值，既不调用目标进程函数，也不产生鼠标或游戏输入。",
+    "implementation": "sdk/include/cs2_reader/v2/recoil.hpp；纯角度求值，既不调用目标进程函数，也不产生鼠标或游戏输入。",
     "state": "PlayerBody.aim_punch.predictable为4个原生字段，unpredictable为2个原生字段；各组完整读取并关闭核验后独立存在。原生零tick/零角/零速度为有效状态。",
     "function": "E(baseAngle,baseVelocity,target,baseTime,scaleTwice=true)；非预测分量velocity=0、基准fraction=0。先按完整原生衰减、速度及四元数插值求值，再由scaleTwice决定最终乘2；不是简单把基础角乘2。",
     "shot_current_direction": "武器服务查询：EyeAngles + E(P,simulation) + E(U,simulation)。两个E均scaleTwice=true；不乘相机0.45。",
@@ -234,7 +234,7 @@
     "weapon_field": 15,
     "hello_capability_field": 14,
     "model_id": "cs2.weapon_accuracy.14193.v1",
-    "native_client_sha256": "99a6720b29d8b477d55f0a2d7fd4333b5df13f354ba723804e996bead1231aa8",
+    "native_client_sha256": "07103341bc9e0ae2c596b2929075c5094cb397d7e370ea00986c720ed72414e1",
     "units": "无量纲方向幅度，不是角度、命中率或鼠标量",
     "results": "inaccuracy与spread独立status/value；仅VALID有有限值，零有效，失败缺失；新组失败不撤销旧武器或整帧",
     "time": "组内QPC区间包含两个独立标量读取及核验；继承外层实例/进程epoch/capture_sequence/时钟；accuracy_state_time_seconds仅penalty原生游戏秒",
@@ -243,7 +243,7 @@
     "state_update_boundary": "使用游戏已更新penalty/turning，不重复累计姿态/开火/换弹或按Reader帧率额外恢复",
     "control_scope": "仅观察数据；未改变Aim/RCS/Trigger/Rage或控制字段",
     "compatibility": "新descriptor需Reader和消费者成对升级；不在旧tag10更改penalty语义",
-    "current_profile_build": 14197,
-    "model_id_scope": "保留首次核验14193的同一算法标识；14197按新schema布局重新核验同一公式及574例原生夹具；不据此猜测当前游戏版本"
+    "current_profile_build": 14200,
+    "model_id_scope": "保留首次核验14193的同一算法标识；14200重新核验原生函数、调用关系及schema布局。当前build仍须单独核验"
   }
 }

@@ -1,4 +1,5 @@
 #include "diagnostics/capture_report.hpp"
+#include "diagnostics/events.hpp"
 #include <ostream>
 
 namespace cs2::diagnostics {
@@ -13,7 +14,7 @@ void report_capture(std::ostream& log, const model::Snapshot& snapshot, std::uin
     const double elapsed_ms = 1000.0 *
                               static_cast<double>(snapshot.interval.finished_qpc - snapshot.interval.started_qpc) /
                               snapshot.qpc_frequency;
-    log << "seq=" << snapshot.sequence << " target_hz=" << snapshot.capture_target_hz
+    event(log, EventId::CaptureStats) << " seq=" << snapshot.sequence << " target_hz=" << snapshot.capture_target_hz
         << " slots=" << snapshot.coverage.slots << " players=" << snapshot.players.size() << " bodies=" << bodies
         << " weapons=" << snapshot.weapons.size() << " bombs=" << snapshot.bombs.size()
         << " projectiles=" << snapshot.projectiles.size() << " bones=" << bone_points

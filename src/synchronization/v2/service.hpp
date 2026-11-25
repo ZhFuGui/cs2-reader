@@ -9,7 +9,7 @@ namespace cs2::model {
 struct Snapshot;
 }
 
-namespace cs2::synchronization::v1 {
+namespace cs2::synchronization::v2 {
 struct ServiceOptions {
     std::uint16_t port = 13202;
     std::size_t maximum_connections = 8;
@@ -19,9 +19,9 @@ struct ServiceOptions {
 };
 struct ServiceStats {
     std::uint64_t encoded{}, sent{}, pending_coalesced{}, encoder_coalesced{}, connected{};
-    std::string error;
+    std::optional<model::Fault> encoding_fault, network_fault;
 };
-// 采集调用只交接不可变模型；编码和socket由两个独立线程拥有。
+// 采集只交接不可变模型；一个产品编码线程和一个共享 TCP 网络线程分别拥有后续工作。
 class SubscriptionService final {
   public:
     SubscriptionService(const ServiceOptions&, const capture::IClock&, capture::FrequencyControl* = nullptr);
@@ -29,11 +29,11 @@ class SubscriptionService final {
     SubscriptionService(const SubscriptionService&) = delete;
     SubscriptionService& operator=(const SubscriptionService&) = delete;
     void submit(std::shared_ptr<const model::Snapshot>);
-    void unavailable(model::Availability, std::string reason, std::optional<std::uint64_t> epoch = {});
+    void unavailable(model::Availability, model::ReasonCode, std::optional<std::uint64_t> epoch = {});
     ServiceStats stats() const;
 
   private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
-} // namespace cs2::synchronization::v1
+} // namespace cs2::synchronization::v2

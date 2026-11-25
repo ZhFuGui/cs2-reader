@@ -6,9 +6,9 @@ function Get-Digest([string]$Path) {
     try { return ([System.BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
     finally { $sha.Dispose(); $stream.Dispose() }
 }
-$manifestPath = Join-Path $ReaderRoot 'protocol\reader\v1\schema-manifest.json'
+$manifestPath = Join-Path $ReaderRoot 'protocol\reader\v2\schema-manifest.json'
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-$descriptorPath = Join-Path $ReaderRoot ('protocol\reader\v1\' + $manifest.descriptor)
+$descriptorPath = Join-Path $ReaderRoot ('protocol\reader\v2\' + $manifest.descriptor)
 if ((Get-Digest $descriptorPath) -ne $manifest.schema_sha256) {
     throw 'Frozen protocol descriptor mismatch; run build/freeze_protocol.py with grpcio-tools.'
 }
@@ -18,7 +18,11 @@ foreach ($source in $manifest.sources.PSObject.Properties) {
         throw ('Protocol source changed without freezing: ' + $source.Name)
     }
 }
-$headerPath = Join-Path $ReaderRoot 'sdk\include\cs2_reader\v1\schema.hpp'
-if (-not (Get-Content -LiteralPath $headerPath -Raw).Contains($manifest.schema_sha256)) {
+$headerPath = Join-Path $ReaderRoot 'sdk\include\cs2_reader\v2\schema.hpp'
+$header = Get-Content -LiteralPath $headerPath -Raw
+if (-not $header.Contains($manifest.schema_sha256)) {
     throw 'Protocol header hash does not match frozen descriptor.'
+}
+if (-not $header.Contains("protocol_version = $($manifest.protocol_version);")) {
+    throw 'Protocol header version does not match the manifest.'
 }

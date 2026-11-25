@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace cs2_reader::v1 {
+namespace cs2_reader::v2 {
 
 inline constexpr std::size_t record_header_size = 4;
 inline constexpr std::uint32_t maximum_body_size = 16U * 1024U * 1024U;
@@ -154,4 +154,4 @@ class RecordDecoder final {
     bool ended_{};
 };
 
-} // namespace cs2_reader::v1
+} // namespace cs2_reader::v2

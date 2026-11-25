@@ -1,8 +1,8 @@
-#include "synchronization/v1/wire.hpp"
+#include "synchronization/v2/wire.hpp"
 #include <cmath>
 #include <limits>
 
-namespace cs2::synchronization::v1::wire {
+namespace cs2::synchronization::v2::wire {
 void Writer::reserve(std::size_t count) {
     if (count > body_limit || bytes.size() > body_limit - count)
         throw Error("protobuf body exceeds resource limit");
@@ -136,4 +136,4 @@ void patch_fixed64(std::span<std::byte> bytes, std::size_t offset, std::uint64_t
     for (std::size_t i = 0; i < 8; ++i)
         bytes[offset + i] = std::byte((value >> (8 * i)) & 0xffU);
 }
-} // namespace cs2::synchronization::v1::wire
+} // namespace cs2::synchronization::v2::wire

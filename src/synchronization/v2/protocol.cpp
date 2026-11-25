@@ -1,13 +1,13 @@
-#include "synchronization/v1/protocol.hpp"
-#include "cs2_reader/v1/record.hpp"
-#include "cs2_reader/v1/schema.hpp"
+#include "synchronization/v2/protocol.hpp"
+#include "cs2_reader/v2/schema.hpp"
 #include <algorithm>
 #include <bit>
 #include <limits>
 #include <set>
 
-namespace cs2::synchronization::v1 {
+namespace cs2::synchronization::v2 {
 namespace {
+using cs2_reader::v2::protocol_version;
 using wire::Writer;
 Writer clock(const ServerIdentity& v) {
     Writer w;
@@ -31,9 +31,9 @@ ClientRequest decode_request(std::span<const std::byte> bytes, const InstanceId&
         switch (field.number) {
         case 1:
             field.require(0);
-            if (field.scalar != 1)
+            if (field.scalar != protocol_version)
                 throw wire::Error("unsupported envelope version");
-            version = 1;
+            version = protocol_version;
             break;
         case 2:
             field.require(2);
@@ -58,7 +58,7 @@ ClientRequest decode_request(std::span<const std::byte> bytes, const InstanceId&
             throw wire::Error("unsupported client envelope field or direction");
         }
     }
-    if (version != 1 || !body)
+    if (version != protocol_version || !body)
         throw wire::Error("missing envelope version or body");
     ClientRequest result;
     result.kind = body == 11 ? ClientRequest::Kind::Subscribe : ClientRequest::Kind::ClockQuery;
@@ -89,9 +89,13 @@ ClientRequest decode_request(std::span<const std::byte> bytes, const InstanceId&
 }
 Message hello(const ServerIdentity& v) {
     Writer w;
-    w.uint32(1, 1);
-    (void)w.blob(2, cs2_reader::v1::schema_sha256);
-    w.uint32(3, v.hyperv ? 2U : 1U);
+    w.uint32(1, protocol_version);
+    (void)w.blob(2, cs2_reader::v2::schema_sha256);
+#if defined(CS2_READER_R3)
+    w.uint32(3, 1U);
+#else
+    w.uint32(3, 2U); // 既有 Hyper-V 线协议编号。
+#endif
     w.message(4, clock(v));
     w.real(5, v.capture_hz);
     w.boolean(6, true);
@@ -119,14 +123,16 @@ Message status(const SourceStatus& v) {
         (void)w.fixed64(2, *v.epoch);
     if (v.last_success)
         (void)w.fixed64(3, *v.last_success);
-    w.text(4, v.reason);
+    if (v.reason != ReasonCode::None)
+        w.uint32(5, static_cast<std::uint32_t>(v.reason));
     return {14, std::move(w.bytes), {}};
 }
-Message reject(std::uint64_t request, std::string_view code, std::string_view detail) {
+Message reject(std::uint64_t request, ReasonCode reason) {
+    if (reason == ReasonCode::None)
+        throw wire::Error("reject requires a reason code");
     Writer w;
     (void)w.fixed64(1, request);
-    w.text(2, code);
-    w.text(3, detail);
+    w.uint32(4, static_cast<std::uint32_t>(reason));
     return {17, std::move(w.bytes), {}};
 }
 Message heartbeat(std::optional<std::uint64_t> last_success, std::uint64_t coalesced) {
@@ -160,16 +166,17 @@ void validate_snapshot_size(const ServerIdentity& v, std::size_t size) {
 }
 EncodedRecord envelope(const ServerIdentity& v, std::uint64_t sequence, const Message& message) {
     Writer w;
-    w.uint32(1, 1);
+    w.uint32(1, protocol_version);
     (void)w.blob(2, v.instance);
-    (void)w.fixed64(3, sequence);
+    const auto sequence_offset = w.fixed64(3, sequence);
     const auto stamp = w.fixed64(4, 0);
     const auto body = w.blob(message.field, message.body);
     EncodedRecord result;
-    result.bytes = cs2_reader::v1::make_record(w.bytes);
-    result.stamp_offsets.push_back(stamp + 4);
+    result.body = std::move(w.bytes);
+    result.sequence_offset = sequence_offset;
+    result.stamp_offsets.push_back(stamp);
     if (message.clock_stamp_offset)
-        result.stamp_offsets.push_back(body + *message.clock_stamp_offset + 4);
+        result.stamp_offsets.push_back(body + *message.clock_stamp_offset);
     return result;
 }
-} // namespace cs2::synchronization::v1
+} // namespace cs2::synchronization::v2

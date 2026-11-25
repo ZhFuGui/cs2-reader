@@ -6,7 +6,7 @@
 #include <optional>
 
 // build14192的离线核验计算工具；只计算角度，不读取进程、不生成鼠标输入。
-namespace cs2_reader::v1::recoil {
+namespace cs2_reader::v2::recoil {
 inline constexpr std::uint32_t supported_build = 14192;
 inline constexpr float seconds_per_tick = 1.0f / 64.0f;
 inline constexpr float camera_aim_fraction = .45f;
@@ -138,4 +138,4 @@ inline std::optional<Angle> evaluate_view_punch(Angle base, Time origin, float e
     const float exponent = (evaluation_seconds - origin_seconds) * decay_exponent;
     return exponent > 0 ? mul(base, std::exp(-exponent)) : base;
 }
-} // namespace cs2_reader::v1::recoil
+} // namespace cs2_reader::v2::recoil

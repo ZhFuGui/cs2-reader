@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-namespace cs2::synchronization::v1::wire {
+namespace cs2::synchronization::v2::wire {
 using Bytes = std::vector<std::byte>;
 inline constexpr std::size_t body_limit = 16U * 1024U * 1024U;
 class Error final : public std::runtime_error {
@@ -58,4 +58,4 @@ class Reader {
     std::uint64_t little(std::size_t width);
 };
 void patch_fixed64(std::span<std::byte> bytes, std::size_t offset, std::uint64_t value);
-} // namespace cs2::synchronization::v1::wire
+} // namespace cs2::synchronization::v2::wire

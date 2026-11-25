@@ -1,0 +1,11 @@
+{
+  "protocol": "cs2.reader.v2",
+  "protocol_version": 2,
+  "schema_sha256": "de589b63c5efe26492a267bafed709034f8ad31cec02990a3662a87eacaff727",
+  "descriptor": "reader-v2.descriptor.pb",
+  "sources": {
+    "reader/v2/model.proto": "41215c0fb0f3d76b6db7aa6e7a814eb39f39203953e680be5f66494d33bb654f",
+    "reader/v2/snapshot.proto": "91b4e4d0759bc937f2127253f2c73d1472a4516f54bf3f769f0b5425ab879464",
+    "reader/v2/reader.proto": "5bd25cc3e0a72aa9fab3986ba532c304ceb50f9b6b144dfd7d9d398a2f80d4c9"
+  }
+}
