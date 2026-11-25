@@ -1,35 +1,32 @@
 #include "capture/worker_pool.hpp"
 #include <algorithm>
 #include <stdexcept>
+#include <utility>
 namespace cs2::capture {
+WorkerPool::Worker::Worker(std::unique_ptr<memory::IReadChannel> channel, std::size_t worker_index)
+    : index(worker_index), source(std::move(channel)), reader(*source) {}
+
 WorkerPool::WorkerPool(const memory::ISession& session, std::size_t count) {
     if (!count)
         throw std::runtime_error("Worker count must be positive");
     workers_.reserve(count);
     try {
         for (std::size_t i = 0; i < count; ++i) {
-            auto worker = std::make_unique<Worker>();
-            worker->source = session.open_reader();
-            if (!worker->source)
+            auto channel = session.open_reader();
+            if (!channel)
                 throw std::runtime_error("Backend did not provide a reader");
-            worker->reader = std::make_unique<memory::MeteredChannel>(*worker->source);
-            workers_.push_back(std::move(worker));
+            workers_.push_back(std::make_unique<Worker>(std::move(channel), i));
         }
         for (auto& worker : workers_)
             worker->thread = std::thread([this, pointer = worker.get()] { work(*pointer); });
     } catch (...) {
-        {
-            std::lock_guard lock(mutex_);
-            stopping_ = true;
-        }
-        ready_.notify_all();
-        for (auto& worker : workers_)
-            if (worker->thread.joinable())
-                worker->thread.join();
+        stop();
         throw;
     }
 }
-WorkerPool::~WorkerPool() {
+WorkerPool::~WorkerPool() { stop(); }
+
+void WorkerPool::stop() {
     {
         std::lock_guard lock(mutex_);
         stopping_ = true;
@@ -44,6 +41,13 @@ void WorkerPool::run(std::size_t count, std::function<void(memory::IReadChannel&
 }
 void WorkerPool::run_ranges(std::size_t count, std::size_t grain,
                             std::function<void(memory::IReadChannel&, std::size_t, std::size_t)> task) {
+    run_ranges_indexed(count, grain, [task = std::move(task)](auto& reader, auto, auto first, auto last) {
+        task(reader, first, last);
+    });
+}
+void WorkerPool::run_ranges_indexed(
+    std::size_t count, std::size_t grain,
+    std::function<void(memory::IReadChannel&, std::size_t, std::size_t, std::size_t)> task) {
     if (!grain)
         throw std::invalid_argument("Worker group size must be positive");
     const std::lock_guard owner(run_mutex_);
@@ -79,7 +83,7 @@ void WorkerPool::work(Worker& worker) {
             if (first >= count_)
                 break;
             try {
-                task_(*worker.reader, first, first + std::min(grain_, count_ - first));
+                task_(worker.reader, worker.index, first, first + std::min(grain_, count_ - first));
             } catch (...) {
                 const std::lock_guard lock(mutex_);
                 if (!error_)
@@ -97,7 +101,7 @@ diagnostics::ReadMetrics WorkerPool::take_metrics() {
     const std::lock_guard owner(run_mutex_);
     diagnostics::ReadMetrics result;
     for (auto& worker : workers_)
-        result += worker->reader->take_metrics();
+        result += worker->reader.take_metrics();
     return result;
 }
 } // namespace cs2::capture

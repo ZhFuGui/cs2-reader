@@ -1,6 +1,6 @@
 #pragma once
 #include "game/cs2/session/context.hpp"
-#include "memory/observation.hpp"
+#include "game/cs2/input/cvar.hpp"
 #include "model/accuracy.hpp"
 #include <array>
 #include <memory>
@@ -19,7 +19,8 @@ class AccuracyRules {
     std::uint32_t close();
   private:
     std::array<Value,7> values_;
-    std::array<std::unique_ptr<memory::Observation>,7> proofs_;
+    memory::IReadChannel& reader_;
+    std::unique_ptr<CvarBatch> batch_;
 };
 void revoke_accuracy(model::WeaponAccuracyEvaluation&, model::AccuracyStatus);
 } // namespace cs2::game

@@ -1,14 +1,17 @@
 #include "game/cs2/sampling/accuracy.hpp"
 #include "game/cs2/accuracy/evaluation.hpp"
-#include "game/cs2/accuracy/profile.hpp"
+#include "game/cs2/accuracy/dispatch.hpp"
 #include "game/cs2/accuracy/rules.hpp"
 #include "game/cs2/entity/layout.hpp"
 #include "game/cs2/offsets/catalog.hpp"
 #include "game/cs2/sampling/eye.hpp"
+#include "game/cs2/sampling/pawn_velocity.hpp"
 #include "memory/observation.hpp"
+#include "memory/block_reader.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <limits>
 
 namespace cs2::game {
@@ -17,7 +20,9 @@ namespace p = accuracy_profile;
 namespace s = offsets::schema;
 using memory::Address;
 using Status = model::AccuracyStatus;
-struct Failure { Status status; };
+using accuracy_dispatch::Failure;
+using accuracy_dispatch::supports_accuracy;
+using accuracy_dispatch::verify_entry;
 // 每个标量有自己的读取账本。Spread不继承速度、owner、规则或眼角的失败。
 class Query {
   public:
@@ -29,9 +34,23 @@ class Query {
             throw Failure{failure};
         return *value;
     }
+    template <class T>
+    T field(Address object, const memory::Fields& values, std::size_t offset,
+            Status failure = Status::ReadFailed) {
+        const auto value = values.get<T>(offset);
+        if (!value)
+            throw Failure{failure};
+        observation.remember(object + offset, *value);
+        return *value;
+    }
     void entry(const p::Entry& expected) {
-        if (get<std::array<unsigned char,16>>(context_.client.base + expected.rva) != expected.bytes)
-            throw Failure{Status::UnsupportedDispatch};
+        verify_entry(context_, reader_, observation, expected);
+    }
+    Address slot(Address table, std::size_t offset) {
+        const auto value = context_.static_data.value<Address>(reader_, table + offset, &observation);
+        if (!value)
+            throw Failure{Status::ReadFailed};
+        return *value;
     }
     Address table(Address object) {
         const auto value = get<Address>(object);
@@ -40,7 +59,7 @@ class Query {
         return value;
     }
     void method(Address vtable, std::size_t slot, const p::Entry& expected) {
-        if (get<Address>(vtable + slot) != context_.client.base + expected.rva)
+        if (this->slot(vtable, slot) != context_.client.base + expected.rva)
             throw Failure{Status::UnsupportedDispatch};
         entry(expected);
     }
@@ -55,21 +74,45 @@ class Query {
     Address resolve(std::uint32_t handle, Status failure) {
         if (handle == UINT32_MAX)
             return 0;
-        const auto root = get<Address>(context_.client.base + p::entity_table, failure);
-        if (!root || handle == UINT32_MAX - 1)
+        if (handle == UINT32_MAX - 1) {
+            (void)get<Address>(context_.client.base + p::entity_table, failure);
             return 0;
-        if (!memory::user_range(root, 64 * sizeof(Address)))
-            throw Failure{failure};
+        }
         const auto index = handle & layout::entity_index_mask;
-        const auto chunk = get<Address>(root + (index / layout::identities_per_chunk) * sizeof(Address), failure);
-        if (!chunk)
-            return 0;
-        if (!memory::user_range(chunk, layout::identities_per_chunk * layout::identity_stride))
+        memory::ReadPlan plan;
+        const auto root_ticket = plan.pointer(context_.client.base + p::entity_table);
+        const auto chunk_offset = (index / layout::identities_per_chunk) * sizeof(Address);
+        const auto chunk_ticket = plan.pointer_from(root_ticket, chunk_offset);
+        const auto identity_offset = (index % layout::identities_per_chunk) * layout::identity_stride;
+        std::uint32_t actual{};
+        Address instance{};
+        const auto serial_ticket = plan.add_from(chunk_ticket, identity_offset + layout::identity_handle, actual);
+        const auto instance_ticket = plan.add_from(chunk_ticket, identity_offset, instance);
+        plan.execute(reader_);
+        const auto root = plan.pointer_value(root_ticket);
+        if (!root)
             throw Failure{failure};
-        const auto identity = chunk + (index % layout::identities_per_chunk) * layout::identity_stride;
-        if (get<std::uint32_t>(identity + layout::identity_handle, failure) != handle)
+        observation.remember(context_.client.base + p::entity_table, *root);
+        if (!*root)
             return 0;
-        const auto instance = get<Address>(identity, failure);
+        if (!memory::user_range(*root, 64 * sizeof(Address)))
+            throw Failure{failure};
+        const auto chunk = plan.pointer_value(chunk_ticket);
+        if (!chunk)
+            throw Failure{failure};
+        observation.remember(*root + chunk_offset, *chunk);
+        if (!*chunk)
+            return 0;
+        if (!memory::user_range(*chunk, layout::identities_per_chunk * layout::identity_stride) ||
+            !plan.complete(serial_ticket))
+            throw Failure{failure};
+        const auto identity = *chunk + identity_offset;
+        observation.remember(identity + layout::identity_handle, actual);
+        if (actual != handle)
+            return 0;
+        if (!plan.complete(instance_ticket))
+            throw Failure{failure};
+        observation.remember(identity, instance);
         if (instance && !memory::user_range(instance))
             throw Failure{failure};
         return instance;
@@ -134,7 +177,7 @@ Status translate(accuracy::Error error) {
 }
 accuracy::InaccuracyResult inaccuracy(Query& q, memory::IReadChannel& reader, const Context& context,
                                      const Directory& directory, const EntityRef& weapon,
-                                     model::WeaponAccuracyEvaluation& metadata) {
+                                     model::WeaponAccuracyEvaluation& metadata, std::span<const PawnVelocity> velocities) {
     accuracy::Inputs in;
     const auto table = q.table(weapon.address);
     q.method(table, 0xcf8, p::inaccuracy);
@@ -156,13 +199,21 @@ accuracy::InaccuracyResult inaccuracy(Query& q, memory::IReadChannel& reader, co
     if (*in.rules.no_spread)
         return accuracy::evaluate_inaccuracy(in);
     const auto data = q.data();
-    in.weapon.mode = q.get<std::int32_t>(weapon.address + s::C_CSWeaponBase::m_weaponMode);
-    in.weapon.accuracy_penalty = q.get<float>(weapon.address + s::C_CSWeaponBase::m_fAccuracyPenalty);
-    in.weapon.turning_inaccuracy = q.get<float>(weapon.address + s::C_CSWeaponBase::m_flTurningInaccuracy);
-    const auto time = q.observation.get<float>(weapon.address + s::C_CSWeaponBase::m_flLastAccuracyUpdateTime);
+    using memory::field;
+    const memory::Fields state(reader, weapon.address,
+                              {field<std::int32_t>(s::C_CSWeaponBase::m_weaponMode),
+                               field<float>(s::C_CSWeaponBase::m_fAccuracyPenalty),
+                               field<float>(s::C_CSWeaponBase::m_flTurningInaccuracy),
+                               field<float>(s::C_CSWeaponBase::m_flLastAccuracyUpdateTime)});
+    in.weapon.mode = q.field<std::int32_t>(weapon.address, state, s::C_CSWeaponBase::m_weaponMode);
+    in.weapon.accuracy_penalty = q.field<float>(weapon.address, state, s::C_CSWeaponBase::m_fAccuracyPenalty);
+    in.weapon.turning_inaccuracy = q.field<float>(weapon.address, state, s::C_CSWeaponBase::m_flTurningInaccuracy);
+    const auto time = state.get<float>(s::C_CSWeaponBase::m_flLastAccuracyUpdateTime);
+    if (time)
+        q.observation.remember(weapon.address + s::C_CSWeaponBase::m_flLastAccuracyUpdateTime, *time);
     if (time && std::isfinite(*time))
         metadata.accuracy_state_time_seconds = *time;
-    const auto speed_getter = q.get<Address>(table + 0xba0);
+    const auto speed_getter = q.slot(table, 0xba0);
     if (speed_getter == context.client.base + p::maximum_speed.rva) {
         q.entry(p::maximum_speed);
         in.weapon.maximum_speed_path = accuracy::MaximumSpeedPath::WeaponData;
@@ -175,23 +226,34 @@ accuracy::InaccuracyResult inaccuracy(Query& q, memory::IReadChannel& reader, co
         in.weapon.started_arming = arming != 0;
     } else
         throw Failure{Status::UnsupportedDispatch};
+    std::vector<memory::Field> parameters{field<std::array<float,2>>(s::CCSWeaponBaseVData::m_flInaccuracyMove)};
     if (!in.weapon.started_arming.value_or(false))
-        in.data.maximum_speed = q.get<std::array<float,2>>(data + s::CCSWeaponBaseVData::m_flMaxSpeed);
+        parameters.push_back(field<std::array<float,2>>(s::CCSWeaponBaseVData::m_flMaxSpeed));
+    const memory::Fields definition(reader, data, parameters);
+    if (!in.weapon.started_arming.value_or(false))
+        in.data.maximum_speed = q.field<std::array<float,2>>(data, definition, s::CCSWeaponBaseVData::m_flMaxSpeed);
     q.method(table, 0xb70, p::movement);
-    in.data.movement = q.get<std::array<float,2>>(data + s::CCSWeaponBaseVData::m_flInaccuracyMove);
-    q.entry(p::velocity);
-    q.entry(p::velocity_recompute);
-    if (q.get<std::uint8_t>(owner + s::C_BaseEntity::m_nActualMoveType) == 5)
-        throw Failure{Status::UnsupportedPhysics};
-    if (q.get<std::uint32_t>(owner + s::C_BaseEntity::m_iEFlags) & 0x1000)
+    in.data.movement = q.field<std::array<float,2>>(data, definition, s::CCSWeaponBaseVData::m_flInaccuracyMove);
+    const auto* speed = find_pawn_velocity(velocities, handle);
+    if (!speed || speed->pawn.address != owner)
+        throw Failure{Status::ReadFailed};
+    if (speed->status != Status::Valid)
+        throw Failure{speed->status};
+    if (!speed->value)
+        throw Failure{Status::ReadFailed};
+    if (speed->reconstructed_for && speed->reconstructed_for->handle != weapon.handle)
         throw Failure{Status::DirtyVelocity};
-    in.owner.velocity = q.get<accuracy::Velocity>(owner + s::C_BaseEntity::m_vecAbsVelocity);
-    const auto walking = q.get<std::uint8_t>(owner + s::C_CSPlayerPawn::m_bIsWalking);
+    const auto v = *speed->value;
+    in.owner.velocity = accuracy::Velocity{v.x, v.y, v.z};
+    const memory::Fields movement(reader, owner,
+                                 {field<std::uint8_t>(s::C_CSPlayerPawn::m_bIsWalking),
+                                  field<std::uint32_t>(s::C_BaseEntity::m_hGroundEntity)});
+    const auto walking = q.field<std::uint8_t>(owner, movement, s::C_CSPlayerPawn::m_bIsWalking);
     if (walking > 1)
         throw Failure{Status::InvalidInput};
     in.owner.walking = walking != 0;
     q.method(q.table(owner), 0x5c8, p::ground);
-    const auto ground = q.get<std::uint32_t>(owner + s::C_BaseEntity::m_hGroundEntity, Status::GroundUnavailable);
+    const auto ground = q.field<std::uint32_t>(owner, movement, s::C_BaseEntity::m_hGroundEntity, Status::GroundUnavailable);
     in.owner.ground_entity_present = q.resolve(ground, Status::GroundUnavailable) != 0;
     if (!*in.owner.ground_entity_present) {
         in.rules.air_scale = q.rule<float>(p::air_scale, "weapon_air_spread_scale");
@@ -200,7 +262,6 @@ accuracy::InaccuracyResult inaccuracy(Query& q, memory::IReadChannel& reader, co
         in.data.jump_apex = q.get<float>(data + s::CCSWeaponBaseVData::m_flInaccuracyJumpApex);
     }
     in.rules.lateral_enabled = q.rule<std::uint8_t>(p::lateral_enabled, "sv_strafing_inaccuracy_enabled") != 0;
-    const auto v = *in.owner.velocity;
     if (*in.rules.lateral_enabled && (v.y*v.y + v.x*v.x) + v.z*v.z >= .001f) {
         const auto eye = sample_eye_basis(reader, context, directory, *q.owner);
         if (!eye)
@@ -217,20 +278,28 @@ accuracy::InaccuracyResult inaccuracy(Query& q, memory::IReadChannel& reader, co
 
 model::WeaponAccuracyEvaluation sample_weapon_accuracy(memory::IReadChannel& reader, const Context& context,
                                                        const Directory& directory, const EntityRef& weapon,
-                                                       const capture::IClock& clock, const AccuracyRules* rules) {
+                                                       const capture::IClock& clock, const AccuracyRules* rules,
+                                                       std::span<const PawnVelocity> velocities) {
     model::WeaponAccuracyEvaluation result;
     result.model_id = p::model_id;
     result.started_qpc = clock.now();
-    if (context.build != p::build || context.client.timestamp != p::timestamp || context.client.size != p::image_size) {
+    if (!supports_accuracy(context)) {
         result.inaccuracy.status = result.spread.status = Status::UnsupportedBuild;
     } else {
         Query spread(reader, context, directory, weapon);
         try {
-            spread.method(spread.table(weapon.address), 0xbd0, p::spread);
+            const memory::Fields roots(reader, weapon.address,
+                                       {memory::field<Address>(0), memory::field<Address>(p::vdata),
+                                        memory::field<std::int32_t>(s::C_CSWeaponBase::m_weaponMode)});
+            const auto table = spread.field<Address>(weapon.address, roots, 0);
+            if (!memory::user_range(table)) throw Failure{Status::UnsupportedDispatch};
+            spread.method(table, 0xbd0, p::spread);
             accuracy::WeaponState state;
             accuracy::WeaponData data;
-            state.mode = spread.get<std::int32_t>(weapon.address + s::C_CSWeaponBase::m_weaponMode);
-            data.spread = spread.get<std::array<float,2>>(spread.data() + s::CCSWeaponBaseVData::m_flSpread);
+            state.mode = spread.field<std::int32_t>(weapon.address, roots, s::C_CSWeaponBase::m_weaponMode);
+            const auto definition = spread.field<Address>(weapon.address, roots, p::vdata);
+            if (!memory::user_range(definition)) throw Failure{Status::InvalidInput};
+            data.spread = spread.get<std::array<float,2>>(definition + s::CCSWeaponBaseVData::m_flSpread);
             const auto value = accuracy::evaluate_spread(state, data);
             result.spread = {value.value, translate(value.error)};
         } catch (const Failure& error) {
@@ -241,7 +310,7 @@ model::WeaponAccuracyEvaluation sample_weapon_accuracy(memory::IReadChannel& rea
         Query query(reader, context, directory, weapon);
         query.rules=rules;
         try {
-            const auto value = inaccuracy(query, reader, context, directory, weapon, result);
+            const auto value = inaccuracy(query, reader, context, directory, weapon, result, velocities);
             result.inaccuracy = {value.value, translate(value.error)};
             if (value.value) {
                 result.branch = static_cast<model::AccuracyBranch>(value.branch);

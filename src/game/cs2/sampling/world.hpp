@@ -1,5 +1,6 @@
 #pragma once
 #include "game/cs2/sampling/common.hpp"
+#include "model/world.hpp"
 namespace cs2::game {
 model::World sample_world(memory::IReadChannel&, const Context&);
 memory::Fields bomb_fields(memory::Address);

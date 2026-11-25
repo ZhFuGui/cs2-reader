@@ -12,7 +12,7 @@ memory::Fields body_fields(memory::Address address) {
     namespace modelentity = offsets::schema::C_BaseModelEntity;
     using memory::field;
     return memory::Fields(
-        address, entity_fields(),
+        address, pawn_common_fields(),
         {field<memory::Address>(base::m_pWeaponServices),
          field<memory::Address>(base::m_pItemServices),
          field<model::Vec3>(modelentity::m_vecViewOffset),

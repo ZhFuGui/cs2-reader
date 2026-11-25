@@ -15,7 +15,7 @@ struct Lane {
 };
 static_assert(sizeof(Lane) == 32);
 } // namespace
-std::optional<model::EyeAngleBasis> history_basis(Observation& read, const Context& context, memory::Address pawn,
+std::optional<model::EyeAngleBasis> history_basis(memory::IReadChannel& reader, Observation& read, const Context& context, memory::Address pawn,
                                                   std::int32_t native_context) {
     namespace p = eye_profile;
     const auto active = read.get<std::uint8_t>(pawn + p::active);
@@ -61,10 +61,10 @@ std::optional<model::EyeAngleBasis> history_basis(Observation& read, const Conte
     const auto history = pawn + p::history;
     const auto table = read.get<memory::Address>(history);
     if (!table || *table != context.client.base + p::history_vtable ||
-        read.get<memory::Address>(*table + 0x98) != std::optional(context.client.base + p::history_fallback) ||
-        read.get<memory::Address>(*table + 0x128) != std::optional(context.client.base + p::history_type) ||
-        read.get<memory::Address>(*table + 0x18) != std::optional(context.client.base + p::history_delay) ||
-        read.get<memory::Address>(*table + 0x90) != std::optional(context.client.base + p::history_after_fallback))
+        context.static_data.value<memory::Address>(reader, *table + 0x98, &read) != std::optional(context.client.base + p::history_fallback) ||
+        context.static_data.value<memory::Address>(reader, *table + 0x128, &read) != std::optional(context.client.base + p::history_type) ||
+        context.static_data.value<memory::Address>(reader, *table + 0x18, &read) != std::optional(context.client.base + p::history_delay) ||
+        context.static_data.value<memory::Address>(reader, *table + 0x90, &read) != std::optional(context.client.base + p::history_after_fallback))
         return {};
     const auto lanes = read.get<memory::Address>(history + 0x20);
     const auto type = read.get<std::uint8_t>(history + 8);

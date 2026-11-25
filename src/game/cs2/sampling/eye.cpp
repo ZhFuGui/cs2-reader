@@ -29,7 +29,7 @@ class Query {
             const auto table = read_.get<Address>(current->address);
             if (!table || !memory::user_range(*table))
                 return {};
-            const auto getter = read_.get<Address>(*table + 0x570);
+            const auto getter = context_.static_data.value<Address>(reader_, *table + 0x570, &read_);
             if (!getter)
                 return {};
             if (*getter == context_.client.base + p::world_rotation_getter) {
@@ -42,7 +42,7 @@ class Query {
                     return {};
             }
             if (!prediction) {
-                result = eye::history_basis(read_, context_, current->address, *selector);
+                result = eye::history_basis(reader_, read_, context_, current->address, *selector);
                 break;
             }
             const auto camera = read_.get<Address>(current->address + schema::C_BasePlayerPawn::m_pCameraServices);
@@ -53,7 +53,7 @@ class Query {
                     return {};
                 const auto camera_table = read_.get<Address>(*camera);
                 if (!camera_table || !memory::user_range(*camera_table) ||
-                    read_.get<Address>(*camera_table + 0xf0) !=
+                    context_.static_data.value<Address>(reader_, *camera_table + 0xf0, &read_) !=
                         std::optional(context_.client.base + p::camera_view_getter))
                     return {};
                 const auto view = read_.get<std::uint32_t>(*camera + schema::CPlayer_CameraServices::m_hViewEntity);
@@ -67,7 +67,8 @@ class Query {
                     continue;
                 }
             }
-            if (read_.get<Address>(*table + 0x578) != std::optional(context_.client.base + p::input_getter))
+            if (context_.static_data.value<Address>(reader_, *table + 0x578, &read_) !=
+                std::optional(context_.client.base + p::input_getter))
                 return {};
             result = input_basis(*current, *selector);
             break;

@@ -1,5 +1,6 @@
 #pragma once
 #include "game/cs2/sampling/common.hpp"
+#include "model/living.hpp"
 namespace cs2::game {
 memory::Fields player_fields(memory::Address);
 memory::Fields body_fields(memory::Address);

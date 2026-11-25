@@ -1,6 +1,6 @@
 #pragma once
 #include "game/cs2/session/context.hpp"
-#include "model/snapshot.hpp"
+#include "model/coverage.hpp"
 #include <optional>
 #include <span>
 #include <string>
@@ -37,7 +37,7 @@ class Directory {
     std::vector<Slot> slots;
     void discover(memory::IReadChannel&, const Context&);
     void classify(memory::IReadChannel&, std::size_t index);
-    void classify_many(memory::IReadChannel&, std::span<const std::size_t> indices);
+    void classify_many(memory::IReadChannel&, std::span<const std::size_t> indices, const Context* = nullptr);
     void resolve_player_aliases(memory::IReadChannel&);
     [[nodiscard]] const EntityRef* resolve(std::uint32_t handle) const noexcept;
     [[nodiscard]] const EntityRef* find_address(memory::Address) const noexcept;

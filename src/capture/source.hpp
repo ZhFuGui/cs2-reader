@@ -2,9 +2,12 @@
 #include "capture/clock.hpp"
 #include "memory/session.hpp"
 #include "model/snapshot.hpp"
+#include <exception>
 #include <memory>
 
 namespace cs2::capture {
+class IncompatibleSource final : public std::exception {};
+
 // 一次绑定拥有一个采集器；调用方必须先销毁采集器，再释放其引用的会话。
 class ISource {
   public:

@@ -29,6 +29,10 @@ std::span<const memory::Field> entity_fields() noexcept {
         field<model::Vec3>(m_vecAbsVelocity),     field<std::uint32_t>(m_hOwnerEntity)};
     return fields;
 }
+std::span<const memory::Field> pawn_common_fields() noexcept {
+    const auto fields = entity_fields();
+    return fields.first(fields.size() - 2);
+}
 model::EntityState sample_common(memory::IReadChannel& reader, const EntityRef& ref) {
     const memory::Fields fields(reader, ref.address, entity_fields());
     return sample_common(reader, ref, fields);

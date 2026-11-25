@@ -30,13 +30,13 @@ std::optional<CameraRecoilSample> sample_camera_recoil(memory::IReadChannel& rea
             return {};
         observer_table = memory::read_value<Address>(reader, *observer);
         if (!observer_table || !memory::user_range(*observer_table) ||
-            memory::read_value<Address>(reader, *observer_table + 0xf0) !=
+            context.static_data.value<Address>(reader, *observer_table + 0xf0) !=
                 std::optional(context.client.base + recoil_profile::observer_mode_function) ||
-            memory::read_value<Address>(reader, *observer_table + 0x100) !=
+            context.static_data.value<Address>(reader, *observer_table + 0x100) !=
                 std::optional(context.client.base + recoil_profile::observer_target_function) ||
-            memory::read_value<Address>(reader, *observer_table + 0x110) !=
+            context.static_data.value<Address>(reader, *observer_table + 0x110) !=
                 std::optional(context.client.base + recoil_profile::observer_dispatch_function) ||
-            memory::read_value<Address>(reader, *observer_table + 0x1a8) !=
+            context.static_data.value<Address>(reader, *observer_table + 0x1a8) !=
                 std::optional(context.client.base + recoil_profile::observer_in_eye_function))
             return {};
         const memory::Fields values(reader, *observer,
@@ -60,7 +60,7 @@ std::optional<CameraRecoilSample> sample_camera_recoil(memory::IReadChannel& rea
         return {};
     const auto table = memory::read_value<Address>(reader, *camera);
     if (!table || !memory::user_range(*table) ||
-        memory::read_value<Address>(reader, *table + 0x110) !=
+        context.static_data.value<Address>(reader, *table + 0x110) !=
             std::optional(context.client.base + recoil_profile::player_camera_function))
         return {};
     CameraRecoilSample result{

@@ -50,9 +50,10 @@ model::Local sample_local(memory::IReadChannel& reader, const Context& context, 
         result.pawn = model::EntityId{ref->handle};
         namespace base = offsets::schema::C_BasePlayerPawn;
         using memory::field;
-        const memory::Fields fields(reader, ref->address, entity_fields(),
+        const memory::Fields fields(reader, ref->address,
                                     {field<memory::Address>(base::m_pCameraServices),
                                      field<memory::Address>(base::m_pObserverServices),
+                                     field<memory::Address>(offsets::schema::C_BaseEntity::m_pGameSceneNode),
                                      field<model::Vec3>(offsets::schema::C_BaseModelEntity::m_vecViewOffset)});
         if (const auto camera = fields.get<memory::Address>(base::m_pCameraServices);
             camera && memory::user_range(*camera)) {
@@ -85,10 +86,12 @@ model::Local sample_local(memory::IReadChannel& reader, const Context& context, 
             result.camera_recoil_path = camera->path;
             result.view_punch = camera->view_punch;
         }
-        const auto entity = sample_common(reader, *ref, fields);
+        model::Transform transform;
+        const TransformRead request{*ref, fields, transform};
+        sample_transforms(reader, std::span(&request, 1));
         const auto view = vector3(fields, offsets::schema::C_BaseModelEntity::m_vecViewOffset);
-        if (entity.transform.position && view) {
-            const auto origin = *entity.transform.position;
+        if (transform.position && view) {
+            const auto origin = *transform.position;
             result.pawn_eye_position = model::Vec3{origin.x + view->x, origin.y + view->y, origin.z + view->z};
         }
         if (!directory.verify(reader, *ref) || !controller_ref ||

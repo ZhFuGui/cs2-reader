@@ -2,38 +2,29 @@
 #include "game/cs2/accuracy/profile.hpp"
 namespace cs2::game {
 namespace {
-struct Description { std::size_t root; std::string_view name; bool real; };
 constexpr std::array descriptions{
-    Description{accuracy_profile::force,"weapon_accuracy_forcespread",true},
-    Description{accuracy_profile::nospread,"weapon_accuracy_nospread",false},
-    Description{accuracy_profile::air_scale,"weapon_air_spread_scale",true},
-    Description{accuracy_profile::jump_impulse,"sv_jump_impulse",true},
-    Description{accuracy_profile::lateral_enabled,"sv_strafing_inaccuracy_enabled",false},
-    Description{accuracy_profile::lateral_bias,"sv_strafing_inaccuracy_bias",true},
-    Description{accuracy_profile::lateral_scale,"sv_strafing_inaccuracy_scale",true}};
+    CvarRequest{accuracy_profile::force,true,"weapon_accuracy_forcespread"},
+    CvarRequest{accuracy_profile::nospread,false,"weapon_accuracy_nospread"},
+    CvarRequest{accuracy_profile::air_scale,true,"weapon_air_spread_scale"},
+    CvarRequest{accuracy_profile::jump_impulse,true,"sv_jump_impulse"},
+    CvarRequest{accuracy_profile::lateral_enabled,false,"sv_strafing_inaccuracy_enabled"},
+    CvarRequest{accuracy_profile::lateral_bias,true,"sv_strafing_inaccuracy_bias"},
+    CvarRequest{accuracy_profile::lateral_scale,true,"sv_strafing_inaccuracy_scale"}};
 }
-AccuracyRules::AccuracyRules(memory::IReadChannel& reader, const Context& context) {
+AccuracyRules::AccuracyRules(memory::IReadChannel& reader, const Context& context) : reader_(reader) {
     if (context.build != accuracy_profile::build)
         return;
+    batch_=std::make_unique<CvarBatch>(reader, context, descriptions);
     for (std::size_t i=0;i<descriptions.size();++i) {
         const auto& d=descriptions[i];auto& v=values_[i];
-        proofs_[i]=std::make_unique<memory::Observation>(reader);
-        auto& proof=*proofs_[i];
-        const auto data=proof.get<memory::Address>(context.client.base+d.root+8);
-        if (!data || !memory::user_range(*data))continue;
-        const auto type=proof.get<std::uint16_t>(*data+0x28);
-        const auto flags=proof.get<std::uint32_t>(*data+0x30);
-        const auto name=proof.get<memory::Address>(*data);
-        if (!type || *type!=(d.real?7:0) || !flags || (*flags&(1u<<15)) || !name)continue;
-        const auto text=proof.bytes(*name,d.name.size()+1);
-        if (!text || text->back()!=std::byte{} || std::memcmp(text->data(),d.name.data(),d.name.size()))continue;
+        const auto& sample=batch_->at(i);
+        if (!sample.readable || sample.type!=(d.real?7:0) || (sample.flags&(1u<<15)))continue;
         if (d.real) {
-            const auto value=proof.get<float>(*data+0x58);
-            if (!value)continue;
-            if (!std::isfinite(*value)) {v.status=model::AccuracyStatus::InvalidInput;continue;}
+            const auto value=sample.real();
+            if (!value) {v.status=model::AccuracyStatus::InvalidInput;continue;}
             v.real=value;
         } else {
-            const auto value=proof.get<std::uint8_t>(*data+0x58);
+            const auto value=sample.boolean();
             if (!value)continue;
             if (*value>1) {v.status=model::AccuracyStatus::InvalidInput;continue;}
             v.boolean=value;
@@ -49,8 +40,11 @@ const AccuracyRules::Value& AccuracyRules::at(std::size_t root, std::uint32_t& u
 }
 std::uint32_t AccuracyRules::close() {
     std::uint32_t changed=0;
-    for (std::size_t i=0;i<proofs_.size();++i)
-        if (proofs_[i] && !proofs_[i]->close())changed|=1u<<i;
+    if (batch_) {
+        const auto matches=batch_->close(reader_);
+        for (std::size_t i=0;i<matches.size();++i)
+            if (batch_->at(i).readable && !matches[i])changed|=1u<<i;
+    }
     return changed;
 }
 void revoke_accuracy(model::WeaponAccuracyEvaluation& value, model::AccuracyStatus status) {

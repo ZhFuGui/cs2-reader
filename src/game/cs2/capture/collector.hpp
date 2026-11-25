@@ -1,8 +1,9 @@
 #pragma once
 #include "capture/source.hpp"
-#include "capture/worker_pool.hpp"
-#include "game/cs2/entity/directory.hpp"
+#include "game/cs2/capture/entity_sampler.hpp"
 #include "game/cs2/sampling/map_identity.hpp"
+#include "memory/metered_channel.hpp"
+
 namespace cs2::game {
 class Collector final : public capture::ISource {
   public:
@@ -12,13 +13,12 @@ class Collector final : public capture::ISource {
     void invalidate() noexcept override { map_.invalidate(); }
 
   private:
-    const memory::ISession& session_;
-    const Context context_;
+    const std::uint32_t process_id_;
     const capture::IClock& clock_;
-    const bool bones_;
     std::unique_ptr<memory::IReadChannel> source_;
     memory::MeteredChannel reader_;
-    capture::WorkerPool pool_;
+    Context context_;
+    EntitySampler entities_;
     MapIdentitySampler map_;
 };
 } // namespace cs2::game

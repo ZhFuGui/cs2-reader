@@ -113,7 +113,8 @@ void Directory::discover(memory::IReadChannel& channel, const Context& context) 
 void Directory::classify(memory::IReadChannel& channel, std::size_t index) {
     classify_many(channel, std::span(&index, 1));
 }
-void Directory::classify_many(memory::IReadChannel& channel, std::span<const std::size_t> indices) {
+void Directory::classify_many(memory::IReadChannel& channel, std::span<const std::size_t> indices,
+                              const Context* context) {
     std::vector<Slot*> pending;
     std::vector<const EntityRef*> identities;
     for (auto index : indices) {
@@ -125,10 +126,17 @@ void Directory::classify_many(memory::IReadChannel& channel, std::span<const std
     }
     const auto verified = verify_many(channel, identities);
     std::vector<memory::Block> names(pending.size());
+    std::vector<std::optional<std::string>> static_names(pending.size());
     std::vector<memory::Block::Read> reads;
     for (std::size_t i = 0; i < pending.size(); ++i)
-        if (verified[i])
-            reads.push_back({names[i], pending[i]->entity.designer_pointer, 128});
+        if (verified[i]) {
+            const auto address = pending[i]->entity.designer_pointer;
+            if (context && context->static_data.contains(address, 128))
+                static_names[i] = context->static_data.text(channel, address, 128);
+            // 尾部跨页失败时，沿用 Block 的有效前缀/页回退，不能丢掉已可读的短名称。
+            if (!static_names[i])
+                reads.push_back({names[i], address, 128});
+        }
         else
             pending[i]->state = SlotState::Changed;
     memory::Block::read_many(channel, reads);
@@ -136,7 +144,7 @@ void Directory::classify_many(memory::IReadChannel& channel, std::span<const std
         if (!verified[i])
             continue;
         auto& slot = *pending[i];
-        const auto name = names[i].text(0, 128);
+        const auto name = static_names[i] ? static_names[i] : names[i].text(0, 128);
         if (!name) {
             slot.state = SlotState::Unreadable;
             continue;

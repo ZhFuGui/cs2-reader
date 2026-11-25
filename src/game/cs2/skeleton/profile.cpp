@@ -5,9 +5,9 @@
 
 namespace cs2::game::skeleton {
 namespace {
-// 14197 已逐字节核对全部 80 份模型资源；资产布局 ID 保持不变，
+// 14200 已逐字节核对全部 80 份模型资源；资产布局 ID 保持不变，
 // 当前游戏版本仍独立核验，不将未知版本套入已知骨架。
-constexpr Profile verified_agents{profiles::agents_14192.id, 14197, profiles::agents_14192.bones};
+constexpr Profile verified_agents{profiles::agents_14192.id, 14200, profiles::agents_14192.bones};
 }
 const Profile* find_profile(std::string_view name, std::uint32_t build) noexcept {
     if (build != verified_agents.game_build)

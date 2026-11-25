@@ -2,11 +2,14 @@
 #include "capture/clock.hpp"
 #include "game/cs2/entity/directory.hpp"
 #include "game/cs2/sampling/common.hpp"
+#include "model/living.hpp"
+#include "model/world.hpp"
 #include <span>
 #include <variant>
 
 namespace cs2::game {
 class AccuracyRules;
+struct PawnVelocity;
 using EntityValue =
     std::variant<std::monostate, model::Player, model::Weapon, model::Bomb, model::Projectile, model::EntityState>;
 // 组内共享批量字段读取；深层求值按单对象重新领取，避免慢对象独占整组算力。
@@ -21,7 +24,7 @@ class EntityBatch {
     EntityBatch& operator=(EntityBatch&&) noexcept = default;
     void prepare(memory::IReadChannel&, const Directory&);
     void evaluate(memory::IReadChannel&, const Context&, const Directory&, std::size_t index, const capture::IClock&,
-                  const AccuracyRules*);
+                  const AccuracyRules*, std::span<const PawnVelocity>);
     void close(memory::IReadChannel&, bool bones);
 
   private:

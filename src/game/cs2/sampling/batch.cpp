@@ -4,6 +4,7 @@
 #include "game/cs2/sampling/accuracy.hpp"
 #include "game/cs2/sampling/common.hpp"
 #include "game/cs2/sampling/direction.hpp"
+#include "game/cs2/sampling/pawn_velocity.hpp"
 #include "game/cs2/sampling/player.hpp"
 #include "game/cs2/sampling/skeleton.hpp"
 #include "game/cs2/sampling/weapon.hpp"
@@ -114,7 +115,8 @@ void EntityBatch::prepare(memory::IReadChannel& reader, const Directory& directo
     phase_ = Phase::Prepared;
 }
 void EntityBatch::evaluate(memory::IReadChannel& reader, const Context& context, const Directory& directory,
-                           std::size_t index, const capture::IClock& clock, const AccuracyRules* rules) {
+                           std::size_t index, const capture::IClock& clock, const AccuracyRules* rules,
+                           std::span<const PawnVelocity> velocities) {
     if (phase_ != Phase::Prepared || index >= values_.size())
         throw std::logic_error("Entity evaluation outside its prepared batch");
     if (auto* player = std::get_if<model::Player>(&values_[index]); player && player->body) {
@@ -123,7 +125,7 @@ void EntityBatch::evaluate(memory::IReadChannel& reader, const Context& context,
         player->body->aim_punch = std::move(direction.aim_punch);
     } else if (auto* weapon = std::get_if<model::Weapon>(&values_[index])) {
         weapon->accuracy_evaluation =
-            sample_weapon_accuracy(reader, context, directory, roots_[index]->ref, clock, rules);
+            sample_weapon_accuracy(reader, context, directory, roots_[index]->ref, clock, rules, velocities);
     }
 }
 void EntityBatch::close(memory::IReadChannel& reader, bool bones) {

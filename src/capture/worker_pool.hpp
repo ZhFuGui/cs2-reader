@@ -1,4 +1,5 @@
 #pragma once
+#include "memory/metered_channel.hpp"
 #include "memory/session.hpp"
 #include <atomic>
 #include <condition_variable>
@@ -17,20 +18,25 @@ class WorkerPool {
     void run(std::size_t count, std::function<void(memory::IReadChannel&, std::size_t)> task);
     void run_ranges(std::size_t count, std::size_t grain,
                     std::function<void(memory::IReadChannel&, std::size_t, std::size_t)> task);
+    void run_ranges_indexed(std::size_t count, std::size_t grain,
+                            std::function<void(memory::IReadChannel&, std::size_t, std::size_t, std::size_t)> task);
     diagnostics::ReadMetrics take_metrics();
     std::size_t size() const noexcept { return workers_.size(); }
 
   private:
     struct Worker {
+        Worker(std::unique_ptr<memory::IReadChannel>, std::size_t index);
+        const std::size_t index;
         std::unique_ptr<memory::IReadChannel> source;
-        std::unique_ptr<memory::MeteredChannel> reader;
+        memory::MeteredChannel reader;
         std::thread thread;
     };
+    void stop();
     void work(Worker&);
     std::vector<std::unique_ptr<Worker>> workers_;
     std::mutex mutex_, run_mutex_;
     std::condition_variable ready_, finished_;
-    std::function<void(memory::IReadChannel&, std::size_t, std::size_t)> task_;
+    std::function<void(memory::IReadChannel&, std::size_t, std::size_t, std::size_t)> task_;
     std::atomic_size_t next_{0};
     std::size_t count_ = 0, remaining_ = 0, grain_ = 1;
     std::uint64_t generation_ = 0;
