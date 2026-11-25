@@ -9,7 +9,7 @@
 *.json text eol=lf
 
 # 冻结协议的源文件按原始字节校验 SHA-256，不能由检出时的换行转换改变。
-protocol/reader/v1/*.proto -text
+protocol/reader/v2/*.proto -text
 *.pb binary
 
 # 保留上游许可证的原始字节，不将其自带空白作为本项目格式修改。

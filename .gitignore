@@ -41,11 +41,11 @@
 !/protocol/reader/
 !/protocol/reader/diagnostic-codes.json
 !/protocol/reader/diagnostic-codes.md
-!/protocol/reader/v1/
-!/protocol/reader/v1/*.proto
-!/protocol/reader/v1/contract.json
-!/protocol/reader/v1/schema-manifest.json
-!/protocol/reader/v1/reader-v1.descriptor.pb
+!/protocol/reader/v2/
+!/protocol/reader/v2/*.proto
+!/protocol/reader/v2/contract.json
+!/protocol/reader/v2/schema-manifest.json
+!/protocol/reader/v2/reader-v2.descriptor.pb
 !/sdk/
 !/sdk/include/
 !/sdk/include/**/
@@ -68,3 +68,18 @@
 /src/**/*_test.*
 /src/**/*_tests.*
 /src/**/*_checks.*
+
+# 底层实现只在私有 readers-shared 维护；本仓库仅允许公开接口适配器。
+/src/backends/*
+!/src/backends/shared/
+!/src/backends/shared/backend.cpp
+!/src/backends/shared/backend.hpp
+/src/platform/windows/native_api.*
+/src/platform/windows/process_catalog.*
+/src/platform/windows/process_image.*
+/src/platform/windows/process_name.*
+/src/platform/windows/unique_handle.*
+/src/memory/module_walker.*
+/src/memory/write_channel.*
+/readers-shared/
+/third_party/readers-shared/

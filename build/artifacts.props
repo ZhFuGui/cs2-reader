@@ -5,7 +5,9 @@
     <BuildIntermediatesRoot Condition="'$(BuildIntermediatesRoot)'==''">$(BuildArtifactsRoot)\obj</BuildIntermediatesRoot>
     <OutDir>$(BuildArtifactsRoot)\bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(BuildIntermediatesRoot)\$(Platform)\$(Configuration)\$(MSBuildProjectName)\</IntDir>
+    <IntDir Condition="'$(ReaderBackend)'=='R3'">$(IntDir)r3\</IntDir>
     <IntDir Condition="'$(ReaderAsDll)'=='true'">$(IntDir)dll\</IntDir>
+    <TargetName Condition="'$(ReaderBackend)'=='R3'">$(MSBuildProjectName)-r3</TargetName>
     <LinkIncremental>false</LinkIncremental>
     <LocalDebuggerWorkingDirectory>$(OutDir)</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommandArguments></LocalDebuggerCommandArguments>
