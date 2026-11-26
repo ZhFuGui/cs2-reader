@@ -1,9 +1,44 @@
 ﻿param(
     [Parameter(Mandatory=$true)][string]$ReaderRoot,
     [string]$OutputDirectory,
-    [switch]$UpdateMarkdown
+    [switch]$UpdateMarkdown,
+    [switch]$VerifyFrozenProtocol
 )
 $ErrorActionPreference = 'Stop'
+
+function Get-Sha256([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+        finally { $sha.Dispose() }
+    } finally {
+        $stream.Dispose()
+    }
+}
+
+function Assert-FrozenProtocol([string]$Root) {
+    $protocolRoot = Join-Path $Root 'protocol'
+    $frozenDirectory = Join-Path $protocolRoot 'reader\v2'
+    $manifest = Get-Content -LiteralPath (Join-Path $frozenDirectory 'schema-manifest.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $descriptor = Join-Path $frozenDirectory $manifest.descriptor
+    if ((Get-Sha256 $descriptor) -ne $manifest.schema_sha256) {
+        throw 'Frozen protocol descriptor mismatch; run build/freeze_protocol.py with grpcio-tools.'
+    }
+    foreach ($source in $manifest.sources.PSObject.Properties) {
+        $path = Join-Path $protocolRoot $source.Name
+        if ((Get-Sha256 $path) -ne $source.Value) {
+            throw ('Protocol source changed without freezing: ' + $source.Name)
+        }
+    }
+    $header = [IO.File]::ReadAllText((Join-Path $Root 'sdk\include\cs2_reader\v2\schema.hpp'))
+    if (-not $header.Contains($manifest.schema_sha256)) {
+        throw 'Protocol header hash does not match frozen descriptor.'
+    }
+    if (-not $header.Contains("protocol_version = $($manifest.protocol_version);")) {
+        throw 'Protocol header version does not match the manifest.'
+    }
+}
 
 function Write-GeneratedFile([string]$Path, [string]$Content) {
     if ([IO.File]::Exists($Path) -and [IO.File]::ReadAllText($Path) -ceq $Content) {
@@ -12,7 +47,11 @@ function Write-GeneratedFile([string]$Path, [string]$Content) {
     [IO.File]::WriteAllText($Path, $Content, [Text.UTF8Encoding]::new($false))
 }
 
-$catalogDirectory = Join-Path (Resolve-Path -LiteralPath $ReaderRoot).Path 'protocol\reader'
+$root = (Resolve-Path -LiteralPath $ReaderRoot).Path
+if ($VerifyFrozenProtocol) {
+    Assert-FrozenProtocol $root
+}
+$catalogDirectory = Join-Path $root 'protocol\reader'
 $catalog = Get-Content -LiteralPath (Join-Path $catalogDirectory 'diagnostic-codes.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $markdownPath = Join-Path $catalogDirectory 'diagnostic-codes.md'
 $markdown = [IO.File]::ReadAllText($markdownPath).Replace("`r`n", "`n")

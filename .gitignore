@@ -18,7 +18,6 @@
 !/build/compiler.props
 !/build/generate_diagnostic_codes.ps1
 !/build/generate_offset_metadata.ps1
-!/build/verify_protocol.ps1
 !/build/freeze_protocol.py
 !/resources/
 !/resources/version.rc

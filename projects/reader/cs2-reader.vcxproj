@@ -264,9 +264,8 @@
   <Target Name="ValidateReaderBackend" BeforeTargets="PrepareForBuild">
     <Error Condition="'$(ReaderBackend)'!='HyperV' and '$(ReaderBackend)'!='R3'" Text="ReaderBackend must be HyperV or R3." />
   </Target>
-  <Target Name="VerifyFrozenProtocol" BeforeTargets="ClCompile">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ReaderRoot)build\verify_protocol.ps1&quot; -ReaderRoot &quot;$(ReaderRoot).&quot;" />
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ReaderRoot)build\generate_diagnostic_codes.ps1&quot; -ReaderRoot &quot;$(ReaderRoot).&quot; -OutputDirectory &quot;$(IntDir)generated&quot;" />
+  <Target Name="GenerateProtocolDiagnostics" BeforeTargets="ClCompile">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ReaderRoot)build\generate_diagnostic_codes.ps1&quot; -ReaderRoot &quot;$(ReaderRoot).&quot; -OutputDirectory &quot;$(IntDir)generated&quot; -VerifyFrozenProtocol" />
   </Target>
   <Target Name="GenerateOffsetMetadata" BeforeTargets="ClCompile">
     <MakeDir Directories="$(IntDir)generated" />
