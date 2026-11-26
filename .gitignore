@@ -1,12 +1,13 @@
-# 默认全部忽略；只有以下产品文件允许入库。
+# 默认全部忽略。只放行以下产品文件和必要交付文件。
 *
 
-# 仓库配置及简洁构建说明。
+# 版本管理规则与 VS 解决方案。
 !/.gitignore
 !/.gitattributes
-!/.clang-format
-!/README.md
 !/cs2-reader.sln
+
+# 交付构建与启动说明，提供私有依赖位置、产物和启动参数。
+!/README.md
 
 # VS 工程与实际构建规则，按文件放行，目录中的开发脚本不放行。
 !/projects/
@@ -22,12 +23,31 @@
 !/resources/
 !/resources/version.rc
 
-# 产品 C++ 源码；Markdown、脚本、日志、导出和二进制均不在放行范围内。
+# 产品 C++ 源码按现有模块和类型放行。后端只纳入共享层公开接口的适配器。
 !/src/
 !/src/**/
-!/src/**/*.cpp
-!/src/**/*.hpp
-!/src/**/*.asm
+!/src/app/*.cpp
+!/src/app/*.hpp
+!/src/backends/shared/backend.cpp
+!/src/backends/shared/backend.hpp
+!/src/capture/*.cpp
+!/src/capture/*.hpp
+!/src/diagnostics/*.cpp
+!/src/diagnostics/*.hpp
+!/src/game/cs2/**/*.cpp
+!/src/game/cs2/**/*.hpp
+!/src/memory/block_reader.cpp
+!/src/memory/dependent_read.cpp
+!/src/memory/*.hpp
+!/src/model/*.hpp
+!/src/platform/windows/qpc_clock.hpp
+!/src/platform/windows/run_control.cpp
+!/src/platform/windows/run_control.hpp
+!/src/runtime/*.cpp
+!/src/runtime/*.hpp
+!/src/synchronization/v2/*.cpp
+!/src/synchronization/v2/*.hpp
+!/src/transport/*.hpp
 
 # 当前编译使用的偏移头文件和构建元数据。
 !/output/
@@ -39,16 +59,22 @@
 !/protocol/
 !/protocol/reader/
 !/protocol/reader/diagnostic-codes.json
+# 随协议交付编号对照表，供接收端解释状态与诊断事件。
 !/protocol/reader/diagnostic-codes.md
 !/protocol/reader/v2/
-!/protocol/reader/v2/*.proto
+!/protocol/reader/v2/model.proto
+!/protocol/reader/v2/reader.proto
+!/protocol/reader/v2/snapshot.proto
 !/protocol/reader/v2/contract.json
 !/protocol/reader/v2/schema-manifest.json
 !/protocol/reader/v2/reader-v2.descriptor.pb
 !/sdk/
 !/sdk/include/
-!/sdk/include/**/
-!/sdk/include/**/*.hpp
+!/sdk/include/cs2_reader/
+!/sdk/include/cs2_reader/v2/
+!/sdk/include/cs2_reader/v2/recoil.hpp
+!/sdk/include/cs2_reader/v2/record.hpp
+!/sdk/include/cs2_reader/v2/schema.hpp
 
 # 保留依赖来源与许可证。
 !/third_party/
@@ -57,27 +83,37 @@
 !/third_party/Hyper_rw-LICENSE.txt
 !/third_party/hyper-reV-LICENSE.txt
 
-# 源码目录中的本机工具及测试辅助代码也不属于产品源码。
+# 禁止项置于放行规则之后，避免源码匹配误纳本地工具、测试或开发资料。
+**/.agents/
 **/.codex*/
 **/.claude*/
+**/.cursor/
+**/.gemini/
+**/AGENTS.md
+**/CLAUDE.md
+**/GEMINI.md
 **/tests/
 **/test/
-/src/**/test_*
-/src/**/test-*
-/src/**/*_test.*
-/src/**/*_tests.*
-/src/**/*_checks.*
+**/fixtures/
+**/testdata/
+**/benchmarks/
+**/docs/
+**/scratch/
+**/test.*
+**/tests.*
+**/test_*
+**/test-*
+**/*_test.*
+**/*_tests.*
+**/*_checks.*
+**/*.test.*
+**/*.spec.*
+**/*_spec.*
+**/benchmark_*
+**/*_benchmark.*
+**/*.bench.*
 
-# 底层实现只在私有 readers-shared 维护；本仓库仅允许公开接口适配器。
-/src/backends/*
-!/src/backends/shared/
-!/src/backends/shared/backend.cpp
-!/src/backends/shared/backend.hpp
-/src/platform/windows/native_api.*
-/src/platform/windows/process_catalog.*
-/src/platform/windows/process_image.*
-/src/platform/windows/process_name.*
-/src/platform/windows/unique_handle.*
+# 私有共享层及已迁出的底层实现留在共享仓库。
 /src/memory/module_walker.*
 /src/memory/write_channel.*
 /readers-shared/
